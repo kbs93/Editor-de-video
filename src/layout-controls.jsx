@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Button } from "./ui-components";
+import { Button } from "./ui-components.jsx";
 import { dispatch } from "@designcombo/events";
 import {
   HISTORY_UNDO,
@@ -8,7 +8,6 @@ import {
   ADD_IMAGE,
   ADD_TEXT,
   ADD_VIDEO,
-  EDIT_OBJECT,
 } from "@designcombo/state";
 import {
   MenuIcon,
@@ -21,8 +20,7 @@ import {
   Crop,
 } from "lucide-react";
 import { nanoid } from "nanoid";
-import { SECONDARY_FONT, SECONDARY_FONT_URL } from "./constants";
-import useStore from "./use-store";
+import useStore, { SECONDARY_FONT, SECONDARY_FONT_URL } from "./editor-store.js";
 
 const ASPECT_RATIOS = [
   {
@@ -96,16 +94,12 @@ export function Navbar() {
     dispatch(HISTORY_REDO);
   };
 
-
-
-
-const handleSelectRatio = (item) => {
+  const handleSelectRatio = (item) => {
     const newSize = {
       width: item.width,
       height: item.height,
     };
 
-    // Altera estritamente o tamanho do ecrã / canvas
     setState({ size: newSize });
 
     dispatch("CHANGE_CANVAS_SIZE", {
@@ -115,7 +109,6 @@ const handleSelectRatio = (item) => {
       payload: newSize,
     });
 
-    // Força a atualização da caixa de seleção visual para não ficar desfasada
     const { sceneMoveableRef } = useStore.getState();
     setTimeout(() => {
       sceneMoveableRef?.current?.moveable?.updateRect();
@@ -123,9 +116,6 @@ const handleSelectRatio = (item) => {
 
     setIsOpen(false);
   };
-
-
-
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -150,7 +140,6 @@ const handleSelectRatio = (item) => {
       }}
       className="bg-sidebar pointer-events-none flex h-[58px] items-center border-b border-border/80 px-2 relative z-50 select-none"
     >
-      {/* Lado Esquerdo */}
       <div className="flex items-center gap-2">
         <div className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-md text-zinc-200">
           <div className="hover:bg-background-subtle flex h-8 w-8 items-center justify-center cursor-pointer">
@@ -177,9 +166,7 @@ const handleSelectRatio = (item) => {
         </div>
       </div>
 
-      {/* Centro: Botão Tamanho + Botão Recortar */}
       <div className="pointer-events-auto flex h-14 items-center justify-center gap-2">
-        {/* Dropdown de Proporções */}
         <div ref={dropdownRef} className="relative">
           <button
             type="button"
@@ -248,7 +235,6 @@ const handleSelectRatio = (item) => {
           )}
         </div>
 
-        {/* Botão Recortar na mesma barra central */}
         <button
           type="button"
           onClick={() => {
@@ -262,7 +248,6 @@ const handleSelectRatio = (item) => {
         </button>
       </div>
 
-      {/* Lado Direito */}
       <div className="flex h-14 items-center justify-end gap-2">
         <div className="bg-sidebar pointer-events-auto flex h-12 items-center gap-2 rounded-md px-2.5">
           <Button
@@ -291,7 +276,7 @@ export function Menu() {
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-const handleAddText = () => {
+  const handleAddText = () => {
     const defaultText = "Texto";
     dispatch(ADD_TEXT, {
       payload: {
@@ -318,9 +303,6 @@ const handleAddText = () => {
       },
     });
   };
-
-
-
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -397,12 +379,7 @@ const handleAddText = () => {
     e.target.value = "";
   };
 
-
-
-
-
-
-const handleVideoUpload = (e) => {
+  const handleVideoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -414,12 +391,11 @@ const handleVideoUpload = (e) => {
     video.preload = "auto";
 
     video.onloadeddata = () => {
-      // Captura a duração total real do vídeo em milissegundos
-      const realDuration = video.duration && !isNaN(video.duration) && isFinite(video.duration)
-        ? Math.round(video.duration * 1000)
-        : 10000;
+      const realDuration =
+        video.duration && !isNaN(video.duration) && isFinite(video.duration)
+          ? Math.round(video.duration * 1000)
+          : 10000;
 
-      // Gera a miniatura estável no frame 0
       const canvas = document.createElement("canvas");
       canvas.width = 160;
       canvas.height = 90;
@@ -433,7 +409,6 @@ const handleVideoUpload = (e) => {
       const canvasW = size?.width || 1920;
       const canvasH = size?.height || 1080;
 
-      // Se o vídeo for maior que a duração atual da timeline, expande a linha do tempo
       if (realDuration > (currentGlobalDuration || 0)) {
         useStore.setState({ duration: realDuration });
         dispatch("CHANGE_DURATION", { payload: { duration: realDuration } });
@@ -478,12 +453,6 @@ const handleVideoUpload = (e) => {
 
     e.target.value = "";
   };
-
-
-
-
-
-
 
   return (
     <div className="w-60 bg-sidebar">

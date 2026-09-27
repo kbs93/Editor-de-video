@@ -1,7 +1,11 @@
-import Timeline from "./timeline";
-import useStore from "./use-store";
-import { Navbar, Menu } from "./layout-controls";
-import { useTimelineEvents } from "./player-hooks";
+import Timeline from "./timeline.jsx";
+import useStore, {
+  loadFonts,
+  SECONDARY_FONT,
+  SECONDARY_FONT_URL,
+  useTimelineEvents,
+} from "./editor-store.js";
+import { Navbar, Menu } from "./layout-controls.jsx";
 import Scene from "./scene";
 import StateManager from "@designcombo/state";
 import { useEffect, useRef } from "react";
@@ -9,9 +13,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "./ui-components";
-import { SECONDARY_FONT, SECONDARY_FONT_URL } from "./constants";
-import { loadFonts } from "./fonts";
+} from "./ui-components.jsx";
 
 const stateManager = new StateManager({
   size: {
@@ -20,14 +22,12 @@ const stateManager = new StateManager({
   },
 });
 
-
 const Editor = () => {
   const timelinePanelRef = useRef(null);
   const { timeline, playerRef, size } = useStore();
 
   useTimelineEvents();
 
-  // Sincroniza as alterações de tamanho do useStore com a instância do StateManager
   useEffect(() => {
     if (size?.width && size?.height) {
       stateManager.updateState({
@@ -78,7 +78,6 @@ const Editor = () => {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden">
-      {/* Navbar posicionada no topo com z-index prioritário */}
       <header className="relative z-50 shrink-0">
         <Navbar />
       </header>

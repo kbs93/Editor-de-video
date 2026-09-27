@@ -1,6 +1,12 @@
-import { Track as TrackBase } from "@designcombo/timeline";
+import {
+  Track as TrackBase,
+  PreviewTrackItem as PreviewTrackItemBase,
+} from "@designcombo/timeline";
 
-class Track extends TrackBase {
+// ==========================================
+// 1. TRILHA CUSTOMIZADA (Track)
+// ==========================================
+export class Track extends TrackBase {
   static type = "Track";
 
   constructor(props) {
@@ -8,7 +14,6 @@ class Track extends TrackBase {
     this.fill = "#18181b";
   }
 
-  // add custom text to the track item
   _render(ctx) {
     super._render(ctx);
     const textPath = new Path2D(
@@ -23,9 +28,7 @@ class Track extends TrackBase {
       ctx.textAlign = "left";
       ctx.clip();
       ctx.fillText("Drag and drop media here", 32, 12);
-
       ctx.translate(8, 1);
-
       ctx.fillStyle = "#A0A4A2";
       ctx.fill(textPath);
       ctx.restore();
@@ -33,4 +36,12 @@ class Track extends TrackBase {
   }
 }
 
-export default Track;
+// ==========================================
+// 2. ITEM DE PRÉ-VISUALIZAÇÃO DE ARRASTE
+// ==========================================
+export class PreviewTrackItem extends PreviewTrackItemBase {
+  static type = "PreviewTrackItem";
+  constructor(props) {
+    super(props);
+  }
+}

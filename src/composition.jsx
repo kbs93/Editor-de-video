@@ -1,5 +1,3 @@
-import useStore from "./use-store";
-import { SequenceItem } from "./sequence-item";
 import { useEffect, useState } from "react";
 import { dispatch, filter, subject } from "@designcombo/events";
 import {
@@ -8,8 +6,10 @@ import {
   ENTER_EDIT_MODE,
 } from "@designcombo/state";
 import { merge } from "lodash";
-import { groupTrackItems } from "./timeline-utils";
-import { calculateTextHeight } from "./scene-utils";
+
+import useStore, { calculateTextHeight } from "./editor-store.js";
+import { groupTrackItems } from "./timeline-toolkit.js";
+import { SequenceItem } from "./sequence-item.jsx";
 
 const Composition = () => {
   const [editableTextId, setEditableTextId] = useState(null);
@@ -19,20 +19,21 @@ const Composition = () => {
     fps,
     trackItemDetailsMap,
     sceneMoveableRef,
-    size,
     transitionsMap,
   } = useStore();
-  const mergedTrackItemsDeatilsMap = merge(trackItemsMap, trackItemDetailsMap);
+
+  const mergedTrackItemsDetailsMap = merge(trackItemsMap, trackItemDetailsMap);
   const groupedItems = groupTrackItems({
     trackItemIds,
     transitionsMap,
-    trackItemsMap: mergedTrackItemsDeatilsMap,
+    trackItemsMap: mergedTrackItemsDetailsMap,
   });
 
-  const handleTextChange = (id, _) => {
+  const handleTextChange = (id) => {
     const elRef = document.querySelector(`.id-${id}`);
     const textDiv =
-      elRef.firstElementChild?.firstElementChild?.firstElementChild;
+      elRef?.firstElementChild?.firstElementChild?.firstElementChild;
+    if (!elRef || !textDiv || !elRef.innerText) return;
 
     const {
       fontFamily,
@@ -44,7 +45,7 @@ const Composition = () => {
       webkitTextStroke,
     } = textDiv.style;
     const { width } = elRef.style;
-    if (!elRef.innerText) return;
+
     const newHeight = calculateTextHeight({
       family: fontFamily,
       fontSize,
@@ -52,22 +53,23 @@ const Composition = () => {
       letterSpacing,
       lineHeight,
       text: elRef.innerText,
-      textShadow: textShadow,
+      textShadow,
       webkitTextStroke,
       width,
-      id: id,
+      id,
     });
+
     elRef.style.height = `${newHeight}px`;
     sceneMoveableRef?.current?.moveable.updateRect();
     sceneMoveableRef?.current?.moveable.forceUpdate();
   };
 
-
-  
-  const onTextBlur = (id, _) => {
+  const onTextBlur = (id) => {
     const elRef = document.querySelector(`.id-${id}`);
     const textDiv =
-      elRef.firstElementChild?.firstElementChild?.firstElementChild;
+      elRef?.firstElementChild?.firstElementChild?.firstElementChild;
+    if (!elRef || !textDiv || !elRef.innerText) return;
+
     const {
       fontFamily,
       fontSize,
@@ -78,7 +80,7 @@ const Composition = () => {
       webkitTextStroke,
     } = textDiv.style;
     const { width } = elRef.style;
-    if (!elRef.innerText) return;
+
     const newHeight = calculateTextHeight({
       family: fontFamily,
       fontSize,
@@ -86,11 +88,12 @@ const Composition = () => {
       letterSpacing,
       lineHeight,
       text: elRef.innerText,
-      textShadow: textShadow,
+      textShadow,
       webkitTextStroke,
       width,
-      id: id,
+      id,
     });
+
     dispatch(EDIT_OBJECT, {
       payload: {
         [id]: {
@@ -102,7 +105,6 @@ const Composition = () => {
     });
   };
 
-  //   handle track and track item events - updates
   useEffect(() => {
     const stateEvents = subject.pipe(
       filter(({ key }) => key.startsWith(ENTER_EDIT_MODE))
@@ -111,7 +113,6 @@ const Composition = () => {
     const subscription = stateEvents.subscribe((obj) => {
       if (obj.key === ENTER_EDIT_MODE) {
         if (editableTextId) {
-          // get element by  data-text-id={id}
           const element = document.querySelector(
             `[data-text-id="${editableTextId}"]`
           );
@@ -140,15 +141,16 @@ const Composition = () => {
         setEditableTextId(obj.value?.payload.id);
       }
     });
+
     return () => subscription.unsubscribe();
-  }, [editableTextId]);
+  }, [editableTextId, trackItemIds]);
 
   return (
     <>
-      {groupedItems.map((group, index) => {
+      {groupedItems.map((group) => {
         if (group.length === 1) {
-          const item = mergedTrackItemsDeatilsMap[group[0].id];
-          return SequenceItem[item.type](item, {
+          const item = mergedTrackItemsDetailsMap[group[0].id];
+          return SequenceItem[item.type]?.(item, {
             fps,
             handleTextChange,
             onTextBlur,
