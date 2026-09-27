@@ -15,9 +15,27 @@ import { getCurrentTime } from "./timeline-math";
 let holdGroupPosition = null;
 let dragStartEnd = false;
 
-// Componente para a moldura de corte ajustável com linha tracejada e alças brancas
+// Overlay de corte dinâmico, livre e com área de toque aumentada
+// Overlay de corte dinâmico ajustável a qualquer tamanho na tela toda
+
+
+
+
+
+
 function CropOverlay({ item, zoom, currentCrop, setCropValues }) {
-  const handlePointerDown = (handle, e) => {
+  const safeZoom = zoom && zoom > 0 ? zoom : 1;
+  const { size } = useStore.getState();
+
+  // Dimensões absolutas reais do vídeo original
+  const fullMediaWidth = item.details?.width || size?.width || 1920;
+  const fullMediaHeight = item.details?.height || size?.height || 1080;
+
+  // A posição top e left originais do objeto
+  const itemLeft = parseFloat(item.details?.left) || 0;
+  const itemTop = parseFloat(item.details?.top) || 0;
+
+  const onHandleStart = (handle, e) => {
     e.stopPropagation();
     e.preventDefault();
 
@@ -25,28 +43,44 @@ function CropOverlay({ item, zoom, currentCrop, setCropValues }) {
     const startY = e.clientY;
     const startCrop = { ...currentCrop };
 
-    const onPointerMove = (moveEvent) => {
-      const dx = (moveEvent.clientX - startX) / zoom;
-      const dy = (moveEvent.clientY - startY) / zoom;
+    const onMouseMove = (moveEvent) => {
+      moveEvent.stopPropagation();
+      moveEvent.preventDefault();
+
+      const dx = (moveEvent.clientX - startX) / safeZoom;
+      const dy = (moveEvent.clientY - startY) / safeZoom;
 
       let nextX = startCrop.x;
       let nextY = startCrop.y;
       let nextWidth = startCrop.width;
       let nextHeight = startCrop.height;
 
+      // Puxar borda Oeste (Esquerda): permite abrir para a esquerda até 0
       if (handle.includes("w")) {
-        nextX = Math.max(0, Math.min(startCrop.x + dx, startCrop.x + startCrop.width - 50));
-        nextWidth = startCrop.width - (nextX - startCrop.x);
+        const requestedX = startCrop.x + dx;
+        const clampedX = Math.max(0, Math.min(requestedX, startCrop.x + startCrop.width - 30));
+        nextWidth = startCrop.width + (startCrop.x - clampedX);
+        nextX = clampedX;
       }
+
+      // Puxar borda Leste (Direita): permite abrir para a direita até à borda total do vídeo
       if (handle.includes("e")) {
-        nextWidth = Math.max(50, Math.min(startCrop.width + dx, item.details.width - startCrop.x));
+        const requestedWidth = startCrop.width + dx;
+        nextWidth = Math.max(30, Math.min(requestedWidth, fullMediaWidth - startCrop.x));
       }
+
+      // Puxar borda Norte (Cima): permite abrir para cima até 0
       if (handle.includes("n")) {
-        nextY = Math.max(0, Math.min(startCrop.y + dy, startCrop.y + startCrop.height - 50));
-        nextHeight = startCrop.height - (nextY - startCrop.y);
+        const requestedY = startCrop.y + dy;
+        const clampedY = Math.max(0, Math.min(requestedY, startCrop.y + startCrop.height - 30));
+        nextHeight = startCrop.height + (startCrop.y - clampedY);
+        nextY = clampedY;
       }
+
+      // Puxar borda Sul (Baixo): permite abrir para baixo até à altura total do vídeo
       if (handle.includes("s")) {
-        nextHeight = Math.max(50, Math.min(startCrop.height + dy, item.details.height - startCrop.y));
+        const requestedHeight = startCrop.height + dy;
+        nextHeight = Math.max(30, Math.min(requestedHeight, fullMediaHeight - startCrop.y));
       }
 
       setCropValues({
@@ -57,27 +91,29 @@ function CropOverlay({ item, zoom, currentCrop, setCropValues }) {
       });
     };
 
-    const onPointerUp = () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
+    const onMouseUp = (upEvent) => {
+      upEvent.stopPropagation();
+      window.removeEventListener("mousemove", onMouseMove, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
     };
 
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("mousemove", onMouseMove, true);
+    window.addEventListener("mouseup", onMouseUp, true);
   };
 
   return (
     <div
       style={{
         position: "absolute",
-        left: item.details.left || 0,
-        top: item.details.top || 0,
-        width: item.details.width,
-        height: item.details.height,
+        left: itemLeft,
+        top: itemTop,
+        width: fullMediaWidth,
+        height: fullMediaHeight,
         pointerEvents: "none",
-        zIndex: 9998,
+        zIndex: 10000,
       }}
     >
+      {/* Moldura tracejada ajustável */}
       <div
         style={{
           position: "absolute",
@@ -85,50 +121,109 @@ function CropOverlay({ item, zoom, currentCrop, setCropValues }) {
           top: currentCrop.y,
           width: currentCrop.width,
           height: currentCrop.height,
-          border: "2px dashed #a855f7",
-          boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.55)",
+          border: "2px dashed #38bdf8",
+          boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.75)",
           pointerEvents: "auto",
         }}
       >
-        {/* Cantos brancos interativos */}
+        {/* Cantos */}
         <div
-          onPointerDown={(e) => handlePointerDown("nw", e)}
-          className="absolute -left-1.5 -top-1.5 w-4 h-4 border-l-4 border-t-4 border-white cursor-nwse-resize"
-        />
+          onMouseDown={(e) => onHandleStart("nw", e)}
+          className="absolute -left-3 -top-3 w-10 h-10 flex items-start justify-start cursor-nwse-resize p-1 z-30 select-none"
+        >
+          <div className="w-6 h-6 border-l-4 border-t-4 border-white shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("ne", e)}
-          className="absolute -right-1.5 -top-1.5 w-4 h-4 border-r-4 border-t-4 border-white cursor-nesw-resize"
-        />
+          onMouseDown={(e) => onHandleStart("ne", e)}
+          className="absolute -right-3 -top-3 w-10 h-10 flex items-start justify-end cursor-nesw-resize p-1 z-30 select-none"
+        >
+          <div className="w-6 h-6 border-r-4 border-t-4 border-white shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("sw", e)}
-          className="absolute -left-1.5 -bottom-1.5 w-4 h-4 border-l-4 border-b-4 border-white cursor-nesw-resize"
-        />
+          onMouseDown={(e) => onHandleStart("sw", e)}
+          className="absolute -left-3 -bottom-3 w-10 h-10 flex items-end justify-start cursor-nesw-resize p-1 z-30 select-none"
+        >
+          <div className="w-6 h-6 border-l-4 border-b-4 border-white shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("se", e)}
-          className="absolute -right-1.5 -bottom-1.5 w-4 h-4 border-r-4 border-b-4 border-white cursor-nwse-resize"
-        />
+          onMouseDown={(e) => onHandleStart("se", e)}
+          className="absolute -right-3 -bottom-3 w-10 h-10 flex items-end justify-end cursor-nwse-resize p-1 z-30 select-none"
+        >
+          <div className="w-6 h-6 border-r-4 border-b-4 border-white shadow-lg pointer-events-none" />
+        </div>
 
-        {/* Alças centrais */}
+        {/* Alças das Bordas */}
         <div
-          onPointerDown={(e) => handlePointerDown("n", e)}
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-1.5 bg-white rounded-sm cursor-ns-resize"
-        />
+          onMouseDown={(e) => onHandleStart("n", e)}
+          className="absolute top-0 left-0 w-full h-10 -translate-y-1/2 flex items-center justify-center cursor-ns-resize z-20 select-none"
+        >
+          <div className="w-16 h-3 bg-white rounded shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("s", e)}
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-1.5 bg-white rounded-sm cursor-ns-resize"
-        />
+          onMouseDown={(e) => onHandleStart("s", e)}
+          className="absolute bottom-0 left-0 w-full h-10 translate-y-1/2 flex items-center justify-center cursor-ns-resize z-20 select-none"
+        >
+          <div className="w-16 h-3 bg-white rounded shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("w", e)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-4 bg-white rounded-sm cursor-ew-resize"
-        />
+          onMouseDown={(e) => onHandleStart("w", e)}
+          className="absolute left-0 top-0 h-full w-10 -translate-x-1/2 flex items-center justify-center cursor-ew-resize z-20 select-none"
+        >
+          <div className="w-3 h-16 bg-white rounded shadow-lg pointer-events-none" />
+        </div>
         <div
-          onPointerDown={(e) => handlePointerDown("e", e)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-1.5 h-4 bg-white rounded-sm cursor-ew-resize"
-        />
+          onMouseDown={(e) => onHandleStart("e", e)}
+          className="absolute right-0 top-0 h-full w-10 translate-x-1/2 flex items-center justify-center cursor-ew-resize z-20 select-none"
+        >
+          <div className="w-3 h-16 bg-white rounded shadow-lg pointer-events-none" />
+        </div>
       </div>
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export function SceneInteractions({ stateManager, viewerRef, zoom }) {
   const [targets, setTargets] = useState([]);
@@ -145,7 +240,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
   const moveableRef = useRef(null);
   const [selectionInfo, setSelectionInfo] = useState(emptySelection);
 
-  // Estados locais do modo de recorte
   const [isCropping, setIsCropping] = useState(false);
   const [cropValues, setCropValues] = useState(null);
   const [backupCrop, setBackupCrop] = useState(null);
@@ -156,34 +250,102 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
     selectedItem &&
     (selectedItem.type === "video" || selectedItem.type === "image");
 
-  const handleStartCrop = () => {
+
+
+
+
+
+
+const handleStartCrop = () => {
     if (!selectedItem) return;
-    const initialCrop = selectedItem.details.crop || {
-      x: 0,
-      y: 0,
-      width: selectedItem.details.width,
-      height: selectedItem.details.height,
-    };
+    const { size } = useStore.getState();
+
+    const fullW = selectedItem.details?.width || size?.width || 1920;
+    const fullH = selectedItem.details?.height || size?.height || 1080;
+
+    // Se já existe um recorte válido menor que o vídeo, abre nele; caso contrário, cobre 100% da área (linha vermelha)
+    const hasValidCrop =
+      selectedItem.details?.crop &&
+      selectedItem.details.crop.width > 0 &&
+      selectedItem.details.crop.height > 0;
+
+    const initialCrop = hasValidCrop
+      ? { ...selectedItem.details.crop }
+      : {
+          x: 0,
+          y: 0,
+          width: fullW,
+          height: fullH,
+        };
+
     setBackupCrop({ ...initialCrop });
     setCropValues({ ...initialCrop });
     setIsCropping(true);
   };
 
-  const handleApplyCrop = () => {
-    if (!selectedItem || !cropValues) return;
-    dispatch(EDIT_OBJECT, {
-      payload: {
-        [selectedItem.id]: {
-          details: {
-            crop: cropValues,
+
+
+
+
+
+const handleApplyCrop = () => {
+  if (!selectedItem || !cropValues) return;
+
+  const currentLeft = parseFloat(selectedItem.details?.left) || 0;
+  const currentTop = parseFloat(selectedItem.details?.top) || 0;
+
+  // Se já havia um crop anterior, calculamos a diferença; se não, usamos o x/y direto
+  const prevCropX = selectedItem.details?.crop?.x || 0;
+  const prevCropY = selectedItem.details?.crop?.y || 0;
+
+  const deltaX = cropValues.x - prevCropX;
+  const deltaY = cropValues.y - prevCropY;
+
+  // Ajusta o container (left e top) para o início do novo retângulo cortado
+  const newLeft = currentLeft + deltaX;
+  const newTop = currentTop + deltaY;
+
+  dispatch(EDIT_OBJECT, {
+    payload: {
+      [selectedItem.id]: {
+        details: {
+          left: `${newLeft}px`,
+          top: `${newTop}px`,
+          crop: {
+            x: cropValues.x,
+            y: cropValues.y,
+            width: cropValues.width,
+            height: cropValues.height,
           },
         },
       },
-    });
-    setIsCropping(false);
-    setCropValues(null);
-    setBackupCrop(null);
-  };
+    },
+  });
+
+  setIsCropping(false);
+  setCropValues(null);
+  setBackupCrop(null);
+
+  setTimeout(() => {
+    moveableRef.current?.moveable?.updateRect();
+  }, 50);
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
 
   const handleCancelCrop = () => {
     setIsCropping(false);
@@ -191,7 +353,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
     setBackupCrop(null);
   };
 
-  // Escuta o clique do botão "Recortar" localizado na barra do topo
   useEffect(() => {
     const handleToggleCrop = () => {
       if (canCrop) {
@@ -209,7 +370,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
     };
   }, [canCrop, isCropping, selectedItem, cropValues]);
 
-  // Atualização dos alvos selecionados no Moveable
   useEffect(() => {
     if (isCropping) {
       setTargets([]);
@@ -225,8 +385,8 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
           trackItemsMap[id]?.display.to >= currentTime
         );
       });
-      const targets = targetIds.map((id) => getTargetById(id));
-      selection?.setSelectedTargets(targets);
+      const currentTargets = targetIds.map((id) => getTargetById(id));
+      selection?.setSelectedTargets(currentTargets);
       const selInfo = getSelectionByIds(targetIds);
 
       setSelectionInfo(selInfo);
@@ -252,9 +412,10 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
     };
   }, [activeIds, playerRef, trackItemsMap, isCropping]);
 
-  // Configuração do gerenciador de seleção do @interactify/toolkit
   useEffect(() => {
-    const selection = new Selection({
+    if (isCropping) return;
+
+    const selectionInstance = new Selection({
       container: viewerRef.current?.infiniteViewer.getContainer(),
       boundContainer: true,
       hitRate: 0,
@@ -264,7 +425,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
       toggleContinueSelect: "shift",
     })
       .on("select", (e) => {
-        if (isCropping) return;
         const ids = e.selected.map((el) => getIdFromClassName(el.className));
         setTargets(e.selected);
 
@@ -279,10 +439,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
         );
       })
       .on("dragStart", (e) => {
-        if (isCropping) {
-          e.stop();
-          return;
-        }
         const target = e.inputEvent.target;
         dragStartEnd = false;
 
@@ -300,7 +456,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
         dragStartEnd = true;
       })
       .on("selectEnd", (e) => {
-        if (isCropping) return;
         const moveable = moveableRef.current;
         if (e.isDragStart) {
           e.inputEvent.preventDefault();
@@ -310,8 +465,8 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
             }
           });
         } else {
-          const targets = e.selected;
-          const ids = targets.map((el) => getIdFromClassName(el.className));
+          const selectedTargets = e.selected;
+          const ids = selectedTargets.map((el) => getIdFromClassName(el.className));
 
           stateManager.updateState(
             {
@@ -322,13 +477,13 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
               kind: "layer:selection",
             }
           );
-          setTargets(targets);
+          setTargets(selectedTargets);
         }
       });
 
-    setSelection(selection);
+    setSelection(selectionInstance);
     return () => {
-      selection.destroy();
+      selectionInstance.destroy();
     };
   }, [isCropping]);
 
@@ -355,40 +510,48 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
   }, [moveableRef]);
 
   return (
+
+
+
+
+
+
+    
     <>
-      {/* Botões suspensos de confirmação/cancelamento exibidos quando o recorte está ativo */}
-      {isCropping && selectedItem && (
+    {/* Botões de Ação com compensação de zoom real para ficarem grandes e visíveis */}
+      {isCropping && selectedItem && cropValues && (
         <div
           style={{
             position: "absolute",
-            left: (parseFloat(selectedItem.details.left) || 0) + (parseFloat(selectedItem.details.width) || 300) / 2,
-            top: (parseFloat(selectedItem.details.top) || 0) - 46,
-            transform: "translateX(-50%)",
-            zIndex: 9999,
+            left: (parseFloat(selectedItem.details?.left) || 0) + cropValues.x + cropValues.width / 2,
+            top: (parseFloat(selectedItem.details?.top) || 0) + cropValues.y - (55 * (1 / (zoom || 1))),
+            transform: `translateX(-50%) scale(${1 / (zoom || 1)})`,
+            transformOrigin: "bottom center",
+            zIndex: 10001,
             pointerEvents: "auto",
           }}
-          className="flex items-center gap-1 bg-white text-zinc-900 px-2 py-1 rounded-lg shadow-xl border border-zinc-200"
+          className="flex items-center gap-2 bg-zinc-950/95 border-2 border-zinc-600 px-3 py-2 rounded-2xl shadow-2xl"
         >
           <button
             type="button"
             onClick={handleApplyCrop}
-            className="p-1 hover:bg-zinc-100 rounded text-emerald-600 transition-colors cursor-pointer"
+            className="flex items-center justify-center h-10 w-10 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 transition-all cursor-pointer shadow-lg active:scale-90"
             title="Confirmar Recorte"
           >
-            <Check className="w-4 h-4" />
+            <Check className="w-6 h-6 stroke-[3]" />
           </button>
           <button
             type="button"
             onClick={handleCancelCrop}
-            className="p-1 hover:bg-zinc-100 rounded text-zinc-600 transition-colors cursor-pointer"
+            className="flex items-center justify-center h-10 w-10 rounded-xl bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-all cursor-pointer shadow-lg active:scale-90"
             title="Cancelar Recorte"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-6 h-6 stroke-[2.5]" />
           </button>
         </div>
       )}
 
-      {/* Renderização da moldura tracejada ajustável */}
+      {/* Renderização da moldura tracejada com alças ajustáveis */}
       {isCropping && selectedItem && cropValues && (
         <CropOverlay
           item={selectedItem}
@@ -398,7 +561,7 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
         />
       )}
 
-      {/* Moveable padrão mantido exatamente com sua lógica original */}
+      {/* Moveable padrão */}
       {!isCropping && (
         <Moveable
           ref={moveableRef}
@@ -430,7 +593,6 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
           }}
           onScale={({ target, transform, direction }) => {
             const [xControl, yControl] = direction;
-
             const moveX = xControl === -1;
             const moveY = yControl === -1;
 
@@ -460,12 +622,8 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
             const diffY = currentHeight - newHeight;
             let newTop = parseFloat(target.style.top) - diffY / 2;
 
-            if (moveX) {
-              newLeft += diffX;
-            }
-            if (moveY) {
-              newTop += diffY;
-            }
+            if (moveX) newLeft += diffX;
+            if (moveY) newTop += diffY;
             target.style.left = newLeft + "px";
             target.style.top = newTop + "px";
           }}
@@ -528,9 +686,7 @@ export function SceneInteractions({ stateManager, viewerRef, zoom }) {
             if (direction[1] === 1) {
               const currentWidth = target.clientWidth;
               const currentHeight = target.clientHeight;
-
-              const scaleY = nextHeight / currentHeight;
-              const scale = scaleY;
+              const scale = nextHeight / currentHeight;
 
               target.style.width = `${currentWidth * scale}px`;
               target.style.height = `${currentHeight * scale}px`;

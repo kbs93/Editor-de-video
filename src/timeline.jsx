@@ -11,8 +11,13 @@ import {
 } from "@designcombo/timeline";
 import useStore from "./use-store";
 import { useCurrentPlayerFrame } from "./player-hooks";
+import Text from "./text";
+
+
+
 import Audio from "./audio";
 import Image from "./image";
+import Video from "./video";
 import Caption from "./caption";
 import Helper from "./helper";
 import Track from "./track";
@@ -23,7 +28,9 @@ import {
 } from "./constants";
 
 CanvasTimeline.registerItems({
+  Text,
   Image,
+  Video,
   Audio,
   Caption,
   Helper,

@@ -8,6 +8,7 @@ import {
   ADD_IMAGE,
   ADD_TEXT,
   ADD_VIDEO,
+  EDIT_OBJECT,
 } from "@designcombo/state";
 import {
   MenuIcon,
@@ -95,23 +96,36 @@ export function Navbar() {
     dispatch(HISTORY_REDO);
   };
 
-  const handleSelectRatio = (item) => {
-    setState({
-      size: {
-        width: item.width,
-        height: item.height,
-      },
-    });
+
+
+
+const handleSelectRatio = (item) => {
+    const newSize = {
+      width: item.width,
+      height: item.height,
+    };
+
+    // Altera estritamente o tamanho do ecrã / canvas
+    setState({ size: newSize });
 
     dispatch("CHANGE_CANVAS_SIZE", {
-      payload: {
-        width: item.width,
-        height: item.height,
-      },
+      payload: newSize,
     });
+    dispatch("CHANGE_SIZE", {
+      payload: newSize,
+    });
+
+    // Força a atualização da caixa de seleção visual para não ficar desfasada
+    const { sceneMoveableRef } = useStore.getState();
+    setTimeout(() => {
+      sceneMoveableRef?.current?.moveable?.updateRect();
+    }, 50);
 
     setIsOpen(false);
   };
+
+
+
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -277,17 +291,20 @@ export function Menu() {
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  const handleAddText = () => {
+const handleAddText = () => {
+    const defaultText = "Texto";
     dispatch(ADD_TEXT, {
       payload: {
         id: nanoid(),
         type: "text",
+        name: defaultText,
+        text: defaultText,
         display: {
           from: 0,
           to: 5000,
         },
         details: {
-          text: "Texto",
+          text: defaultText,
           fontFamily: SECONDARY_FONT,
           fontUrl: SECONDARY_FONT_URL,
           fontSize: 90,
@@ -301,6 +318,9 @@ export function Menu() {
       },
     });
   };
+
+
+
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -377,38 +397,70 @@ export function Menu() {
     e.target.value = "";
   };
 
-  const handleVideoUpload = (e) => {
+
+
+
+
+
+const handleVideoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const src = URL.createObjectURL(file);
     const video = document.createElement("video");
     video.src = src;
-    video.onloadedmetadata = () => {
-      const durationMs = Math.round(video.duration * 1000) || 5000;
-      const width = video.videoWidth || 1920;
-      const height = video.videoHeight || 1080;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+
+    video.onloadeddata = () => {
+      // Captura a duração total real do vídeo em milissegundos
+      const realDuration = video.duration && !isNaN(video.duration) && isFinite(video.duration)
+        ? Math.round(video.duration * 1000)
+        : 10000;
+
+      // Gera a miniatura estável no frame 0
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 90;
+      const ctx = canvas.getContext("2d");
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch (err) {}
+      const previewUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+      const { size, duration: currentGlobalDuration } = useStore.getState();
+      const canvasW = size?.width || 1920;
+      const canvasH = size?.height || 1080;
+
+      // Se o vídeo for maior que a duração atual da timeline, expande a linha do tempo
+      if (realDuration > (currentGlobalDuration || 0)) {
+        useStore.setState({ duration: realDuration });
+        dispatch("CHANGE_DURATION", { payload: { duration: realDuration } });
+      }
 
       dispatch(ADD_VIDEO, {
         payload: {
           id: nanoid(),
           type: "video",
-          duration: durationMs,
+          duration: realDuration,
           display: {
             from: 0,
-            to: durationMs,
+            to: realDuration,
           },
           trim: {
             from: 0,
-            to: durationMs,
+            to: realDuration,
           },
           metadata: {
-            previewUrl: src,
+            previewUrl,
+            naturalWidth: video.videoWidth || 1920,
+            naturalHeight: video.videoHeight || 1080,
           },
           details: {
             src,
-            width,
-            height,
+            width: canvasW,
+            height: canvasH,
             left: 0,
             top: 0,
             volume: 100,
@@ -416,15 +468,22 @@ export function Menu() {
             crop: {
               x: 0,
               y: 0,
-              width,
-              height,
+              width: canvasW,
+              height: canvasH,
             },
           },
         },
       });
     };
+
     e.target.value = "";
   };
+
+
+
+
+
+
 
   return (
     <div className="w-60 bg-sidebar">

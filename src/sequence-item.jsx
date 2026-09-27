@@ -8,7 +8,6 @@ import {
   calculateTextStyles,
 } from "./scene-utils";
 
-// Fallback seguro caso animações venham nulas ou não configuradas
 const getAnimations = (animations, item) => {
   return {
     animationIn: animations?.in || null,
@@ -17,7 +16,7 @@ const getAnimations = (animations, item) => {
 };
 
 export const SequenceItem = {
-  text: (item, options) => {
+text: (item, options) => {
     const { handleTextChange, onTextBlur, fps, editableTextId, zIndex } =
       options;
     const { id, details, animations } = item;
@@ -30,20 +29,28 @@ export const SequenceItem = {
         durationInFrames={durationInFrames}
         style={{ pointerEvents: "none", zIndex }}
       >
-        {/* positioning layer */}
-        <AbsoluteFill
+        <div
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={calculateContainerStyles(details)}
+          style={{
+            ...calculateContainerStyles(details),
+            position: "absolute",
+            width: details.width || 300,
+            height: details.height || "auto",
+            overflow: "hidden",
+            pointerEvents: "auto",
+          }}
         >
-          {/* animation layer */}
           <Animated
-            style={calculateContainerStyles(details)}
+            style={{
+              width: "100%",
+              height: "100%",
+              position: "relative",
+            }}
             animationIn={editableTextId === id ? null : animationIn}
             animationOut={editableTextId === id ? null : animationOut}
             durationInFrames={durationInFrames}
           >
-            {/* text layer */}
             <TextLayer
               key={id}
               id={id}
@@ -51,13 +58,33 @@ export const SequenceItem = {
               editable={editableTextId === id}
               onChange={handleTextChange}
               onBlur={onTextBlur}
-              style={calculateTextStyles(details)}
+              style={{
+                ...calculateTextStyles(details),
+                width: "100%",
+                height: "100%",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+                whiteSpace: "pre-wrap",
+                boxSizing: "border-box",
+              }}
             />
           </Animated>
-        </AbsoluteFill>
+        </div>
       </Sequence>
     );
   },
+
+
+
+
+
+
+
+
+
+
+
+
 
   image: (item, options) => {
     const { fps, zIndex } = options;
@@ -77,13 +104,15 @@ export const SequenceItem = {
         durationInFrames={durationInFrames}
         style={{ pointerEvents: "none", zIndex }}
       >
-        {/* position layer */}
         <AbsoluteFill
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={calculateContainerStyles(details, crop)}
+          style={{
+            ...calculateContainerStyles(details, crop),
+            pointerEvents: "auto",
+            cursor: "pointer",
+          }}
         >
-          {/* animation layer */}
           <Animated
             style={calculateContainerStyles(details, crop, {
               overflow: "hidden",
@@ -92,15 +121,28 @@ export const SequenceItem = {
             animationOut={animationOut}
             durationInFrames={durationInFrames}
           >
-            <div style={calculateMediaStyles(details, crop)}>
-              <Img data-id={item.id} src={details.src} />
+            <div
+              style={{
+                ...calculateMediaStyles(details, crop),
+                pointerEvents: "none",
+              }}
+            >
+              <Img
+                data-id={item.id}
+                src={details.src}
+                style={{ pointerEvents: "none" }}
+              />
             </div>
           </Animated>
         </AbsoluteFill>
       </Sequence>
     );
   },
-  video: (item, options) => {
+
+
+
+
+video: (item, options) => {
     const { fps, zIndex } = options;
     const { details, animations } = item;
     const { animationIn, animationOut } = getAnimations(animations, item);
@@ -112,12 +154,19 @@ export const SequenceItem = {
       },
       fps
     );
-    const crop = details.crop || {
-      x: 0,
-      y: 0,
-      width: item.details.width,
-      height: item.details.height,
-    };
+
+    const hasCrop = details.crop && details.crop.width > 0 && details.crop.height > 0;
+    const crop = hasCrop
+      ? details.crop
+      : {
+          x: 0,
+          y: 0,
+          width: details.width,
+          height: details.height,
+        };
+
+    const containerW = hasCrop ? crop.width : (details.width || "100%");
+    const containerH = hasCrop ? crop.height : (details.height || "auto");
 
     return (
       <Sequence
@@ -126,34 +175,72 @@ export const SequenceItem = {
         durationInFrames={durationInFrames}
         style={{ pointerEvents: "none", zIndex }}
       >
-        <AbsoluteFill
+        <div
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={calculateContainerStyles(details, crop)}
+          style={{
+            ...calculateContainerStyles(details, crop),
+            position: "absolute",
+            width: containerW,
+            height: containerH,
+            overflow: "hidden",
+            pointerEvents: "auto",
+            cursor: "pointer",
+          }}
         >
-          {/* animation layer */}
           <Animated
-            style={calculateContainerStyles(details, crop, {
-              overflow: "hidden",
-            })}
+            style={{
+              width: "100%",
+              height: "100%",
+              position: "relative",
+            }}
             animationIn={animationIn}
             animationOut={animationOut}
             durationInFrames={durationInFrames}
           >
-            <div style={calculateMediaStyles(details, crop)}>
+            <div
+              style={{
+                position: "absolute",
+                top: -crop.y,
+                left: -crop.x,
+                width: details.width,
+                height: details.height,
+                pointerEvents: "none",
+              }}
+            >
               <OffthreadVideo
                 startFrom={(item.trim?.from / 1000) * fps}
                 endAt={(item.trim?.to / 1000) * fps}
                 playbackRate={playbackRate}
                 src={details.src}
-                volume={details.volume || 0 / 100}
+                volume={(details.volume ?? 100) / 100}
+                style={{
+                  pointerEvents: "none",
+                  width: details.width,
+                  height: details.height,
+                }}
               />
             </div>
           </Animated>
-        </AbsoluteFill>
+        </div>
       </Sequence>
     );
   },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   audio: (item, options) => {
     const { fps, zIndex } = options;
     const { details } = item;

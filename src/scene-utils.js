@@ -16,7 +16,7 @@ export const getTargetControls = (targetType) => {
   switch (targetType) {
     case "text":
     case "caption":
-      return ["e", "se"];
+      return ["w", "e", "s", "se", "sw"];
     case "svg":
       return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
     case "image":
@@ -159,20 +159,24 @@ export const calculateTextStyles = (details) => ({
   color: details.color || "#000000",
 });
 
-export const calculateContainerStyles = (details, crop = {}, overrides = {}) => ({
-  pointerEvents: "auto",
-  top: details.top || 0,
-  left: details.left || 0,
-  width: crop.width || details.width || "100%",
-  height: crop.height || details.height || "auto",
-  transform: details.transform || "none",
-  opacity: details.opacity !== undefined ? details.opacity / 100 : 1,
-  transformOrigin: details.transformOrigin || "center center",
-  filter: `brightness(${details.brightness}%) blur(${details.blur}px)`,
-  rotate: details.rotate || "0deg",
-  ...overrides,
-});
 
+export const calculateContainerStyles = (details, crop = {}, overrides = {}) => {
+  const hasCrop = crop && crop.width > 0 && crop.height > 0;
+  return {
+    pointerEvents: "auto",
+    top: details.top || 0,
+    left: details.left || 0,
+    width: hasCrop ? crop.width : (details.width || "100%"),
+    height: hasCrop ? crop.height : (details.height || "auto"),
+    overflow: "hidden",
+    transform: details.transform || "none",
+    opacity: details.opacity !== undefined ? details.opacity / 100 : 1,
+    transformOrigin: details.transformOrigin || "center center",
+    filter: `brightness(${details.brightness || 100}%) blur(${details.blur || 0}px)`,
+    rotate: details.rotate || "0deg",
+    ...overrides,
+  };
+};
 
 // ======================== TEXT DIMENSION UTILS ========================
 export const calculateTextHeight = (props) => {

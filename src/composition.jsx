@@ -62,6 +62,8 @@ const Composition = () => {
     sceneMoveableRef?.current?.moveable.forceUpdate();
   };
 
+
+  
   const onTextBlur = (id, _) => {
     const elRef = document.querySelector(`.id-${id}`);
     const textDiv =
