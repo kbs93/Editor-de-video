@@ -10,6 +10,7 @@ import {
   combineAnimations,
   useAnimation,
 } from "./timeline-toolkit";
+import { ThreeVideoEffect } from "./three-video-effect.jsx";
 
 // ==========================================
 // 1. CAMADA DE TEXTO EDITÁVEL (TextLayer)
@@ -309,6 +310,139 @@ const getAnimations = (animations) => {
   };
 };
 
+
+
+function VideoWithThreeEffects({ item, options }) {
+  const { fps, zIndex } = options;
+  const { details, animations } = item;
+  const { animationIn, animationOut } = getAnimations(animations);
+  const playbackRate = item.playbackRate || 1;
+  const { from, durationInFrames } = calculateFrames(
+    {
+      from: item.display.from / playbackRate,
+      to: item.display.to / playbackRate,
+    },
+    fps
+  );
+
+  const hasCrop = details.crop && details.crop.width > 0 && details.crop.height > 0;
+  const crop = hasCrop ? details.crop : { x: 0, y: 0, width: details.width, height: details.height };
+  const containerW = hasCrop ? crop.width : details.width || "100%";
+  const containerH = hasCrop ? crop.height : details.height || "auto";
+  const containerStyles = calculateContainerStyles(details, crop);
+
+  const [videoElement, setVideoElement] = useState(null);
+
+  const hasActiveEffects = Boolean(
+    details.effects?.greenScreen?.enabled ||
+    details.effects?.removeColor?.enabled ||
+    details.effects?.vhs?.enabled ||
+    details.effects?.diffusion?.enabled
+  );
+
+  return (
+    <Sequence
+      key={item.id}
+      from={from}
+      durationInFrames={durationInFrames}
+      style={{ pointerEvents: "none", zIndex }}
+    >
+      <div
+        data-track-item="transition-element"
+        className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
+        style={{
+          ...containerStyles,
+          position: "absolute",
+          width: containerW,
+          height: containerH,
+          overflow: "hidden",
+          pointerEvents: "auto",
+          cursor: "pointer",
+        }}
+      >
+        <Animated
+          style={{ width: "100%", height: "100%", position: "relative" }}
+          animationIn={animationIn}
+          animationOut={animationOut}
+          durationInFrames={durationInFrames}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -crop.y,
+              left: -crop.x,
+              width: details.width,
+              height: details.height,
+              pointerEvents: "none",
+            }}
+          >
+            {/* O OffthreadVideo mantém o áudio, a velocidade e a reprodução padrão */}
+            <OffthreadVideo
+              ref={(ref) => {
+                if (ref && !videoElement) setVideoElement(ref);
+              }}
+              startFrom={(item.trim?.from / 1000) * fps}
+              endAt={(item.trim?.to / 1000) * fps}
+              playbackRate={playbackRate}
+              src={details.src}
+              volume={(details.volume ?? 100) / 100}
+              style={{
+                pointerEvents: "none",
+                width: details.width,
+                height: details.height,
+                opacity: hasActiveEffects ? 0 : 1,
+              }}
+            />
+
+            {/* O Three.js processa a tela verde e os shaders na GPU */}
+            {hasActiveEffects && videoElement && (
+              <ThreeVideoEffect
+                videoElement={videoElement}
+                width={details.width}
+                height={details.height}
+                effects={details.effects || {}}
+              />
+            )}
+          </div>
+        </Animated>
+      </div>
+    </Sequence>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export const SequenceItem = {
   text: (item, options) => {
     const { handleTextChange, onTextBlur, fps, editableTextId, zIndex } =
@@ -421,127 +555,7 @@ export const SequenceItem = {
     );
   },
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-video: (item, options) => {
-    const { fps, zIndex } = options;
-    const { details, animations } = item;
-    const { animationIn, animationOut } = getAnimations(animations);
-    const playbackRate = item.playbackRate || 1;
-    const { from, durationInFrames } = calculateFrames(
-      {
-        from: item.display.from / playbackRate,
-        to: item.display.to / playbackRate,
-      },
-      fps
-    );
-
-    const hasCrop =
-      details.crop && details.crop.width > 0 && details.crop.height > 0;
-    const crop = hasCrop
-      ? details.crop
-      : {
-          x: 0,
-          y: 0,
-          width: details.width,
-          height: details.height,
-        };
-
-    const containerW = hasCrop ? crop.width : details.width || "100%";
-    const containerH = hasCrop ? crop.height : details.height || "auto";
-    const containerStyles = calculateContainerStyles(details, crop);
-
-    return (
-      <Sequence
-        key={item.id}
-        from={from}
-        durationInFrames={durationInFrames}
-        style={{ pointerEvents: "none", zIndex }}
-      >
-        <div
-          data-track-item="transition-element"
-          className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={{
-            ...containerStyles,
-            position: "absolute",
-            width: containerW,
-            height: containerH,
-            overflow: "hidden",
-            pointerEvents: "auto",
-            cursor: "pointer",
-          }}
-        >
-          <Animated
-            style={{
-              width: "100%",
-              height: "100%",
-              position: "relative",
-            }}
-            animationIn={animationIn}
-            animationOut={animationOut}
-            durationInFrames={durationInFrames}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: -crop.y,
-                left: -crop.x,
-                width: details.width,
-                height: details.height,
-                pointerEvents: "none",
-              }}
-            >
-         <OffthreadVideo
-                startFrom={(item.trim?.from / 1000) * fps}
-                endAt={(item.trim?.to / 1000) * fps}
-                playbackRate={playbackRate}
-                src={details.src}
-                volume={(details.volume ?? 100) / 100}
-                style={{
-                  pointerEvents: "none",
-                  width: details.width,
-                  height: details.height,
-                  filter: calculateContainerStyles(details, crop).filter,
-                  mixBlendMode: calculateContainerStyles(details, crop).mixBlendMode,
-                }}
-      
-
-
-
-              />
-            </div>
-          </Animated>
-        </div>
-      </Sequence>
-    );
-  },
-
-
-
-
-
-
-
-
-
+ video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
 
   audio: (item, options) => {
     const { fps, zIndex } = options;

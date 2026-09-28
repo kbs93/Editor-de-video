@@ -5,6 +5,7 @@ import { dispatch } from "@designcombo/events";
 import {
   HISTORY_UNDO,
   HISTORY_REDO,
+  EDIT_OBJECT,
 } from "@designcombo/state";
 
 import {
@@ -541,8 +542,7 @@ export function Menu() {
 
 
 // Função central que atualiza o item selecionado no Zustand e notifica o motor do DesignCombo
-// Função central: aplica os efeitos directamente no item activo e sincroniza o player
-  const updateActiveItemProperty = (propertyPatch) => {
+const updateActiveItemProperty = (propertyPatch) => {
     const state = useStore.getState();
     const { activeIds, trackItemIds, trackItemsMap, trackItemDetailsMap, setState, playerRef } = state;
     
@@ -580,13 +580,22 @@ export function Menu() {
       },
     });
 
+    // >>> COLOQUE O SEU TRECHO AQUI <<<
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [activeId]: {
+          ...propertyPatch,
+          details: updatedDetails,
+        },
+      },
+    });
+
     // Força o Remotion Player a redesenhar o quadro com o novo filtro aplicado
     if (playerRef?.current) {
       const currentFrame = playerRef.current.getCurrentFrame();
       playerRef.current.seekTo(currentFrame);
     }
   };
-
 
 
 
