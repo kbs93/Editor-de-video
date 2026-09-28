@@ -323,13 +323,17 @@ export const SequenceItem = {
         durationInFrames={durationInFrames}
         style={{ pointerEvents: "none", zIndex }}
       >
-        <div
+
+
+
+
+<div
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
           style={{
             ...calculateContainerStyles(details),
             position: "absolute",
-            width: details.width || 300,
+            width: details.width || 400,
             height: details.height || "auto",
             overflow: "hidden",
             pointerEvents: "auto",
@@ -364,6 +368,16 @@ export const SequenceItem = {
             />
           </Animated>
         </div>
+
+
+
+
+
+
+
+
+
+
       </Sequence>
     );
   },

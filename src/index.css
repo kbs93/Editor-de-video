@@ -112,100 +112,129 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
+  html,
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 }
 
+/* ==========================================
+   VIEWER & CANVAS CONTAINER (TRAVAMENTO FIXO)
+   ========================================== */
 .player-container {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+div.player-container div.infinite-viewer-wrapper {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+div.player-container div.infinite-viewer-scroll-area {
+  pointer-events: none;
+}
+
+div.player-container div.infinite-viewer-scroll-bar {
+  display: none;
 }
 
 .selecto-selection {
-  background: rgba(0, 216, 214, 0.1) !important;
-  border: 1px solid rgba(0, 216, 214, 1) !important;
+  background: rgba(0, 216, 214, 0.1);
+  border: 1px solid rgba(0, 216, 214, 1);
 }
 
-@layer utilities {
-  @variants responsive {
-    .masonry {
-      column-gap: 1.5em;
-      column-count: 1;
-    }
-    .masonry-sm {
-      gap: 0.5rem;
-      column-count: 2;
-    }
+/* ==========================================
+   UTILITÁRIOS
+   ========================================== */
+.masonry {
+  column-gap: 1.5em;
+  column-count: 1;
+}
+
+@media (min-width: 640px) {
+  .masonry-sm {
+    gap: 0.5rem;
+    column-count: 2;
   }
 }
 
+/* ==========================================
+   MOVEABLE CONTROLS
+   ========================================== */
 .designcombo-scene-moveable .moveable-control {
-  background: #333 !important;
-  box-sizing: border-box !important;
-  display: block !important;
-  z-index: 10000 !important;
-  border-radius: 6px !important;
-  cursor: crosshair !important;
-
-  border: 1px solid #ffffff !important;
-  /* box-shadow: 0 0 2px 0 rgb(86, 90, 98, 0.2) !important; */
-  width: 12px !important;
-  height: 12px !important;
-  margin-top: -6px !important;
-  margin-left: -6px !important;
+  background: #333;
+  box-sizing: border-box;
+  display: block;
+  z-index: 10000;
+  border-radius: 6px;
+  cursor: crosshair;
+  border: 1px solid #ffffff;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  margin-left: -6px;
 }
 
 .designcombo-scene-moveable .moveable-control.moveable-n,
 .designcombo-scene-moveable .moveable-control.moveable-s {
-  width: 32px !important;
-  height: 8px !important;
-  margin-top: -4px !important;
-  margin-left: -16px !important;
-  border-radius: 8px !important;
-  z-index: 9999 !important;
-  cursor: crosshair !important;
+  width: 32px;
+  height: 8px;
+  margin-top: -4px;
+  margin-left: -16px;
+  border-radius: 8px;
+  z-index: 9999;
+  cursor: crosshair;
 }
 
 .designcombo-scene-moveable .moveable-control.moveable-e,
 .designcombo-scene-moveable .moveable-control.moveable-w {
-  width: 8px !important;
-  height: 32px !important;
-  margin-left: -4px !important;
-  margin-top: -16px !important;
-  border-radius: 8px !important;
-  z-index: 10 !important;
-  cursor: crosshair !important;
+  width: 8px;
+  height: 32px;
+  margin-left: -4px;
+  margin-top: -16px;
+  border-radius: 8px;
+  z-index: 10;
+  cursor: crosshair;
 }
 
 .designcombo-scene-moveable .moveable-rotation-control {
-  border: none !important;
-  background-image: url("data:image/svg+xml,%3Csvg%20width%3D%2724%27%20height%3D%2724%27%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20fill%3D%27%23757575%27%3E%3Cg%20fill%3D%27none%27%20fill-rule%3D%27evenodd%27%3E%3Ccircle%20stroke%3D%27%23CCD1DA%27%20fill%3D%27%23FFF%27%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%2711.5%27%2F%3E%3Cpath%20d%3D%27M16.242%2012.012a4.25%204.25%200%2000-5.944-4.158L9.696%206.48a5.75%205.75%200%20018.048%205.532h1.263l-2.01%203.002-2.008-3.002h1.253zm-8.484-.004a4.25%204.25%200%20005.943%203.638l.6%201.375a5.75%205.75%200%2001-8.046-5.013H5.023L7.02%209.004l1.997%203.004h-1.26z%27%20fill%3D%27%23000%27%20fill-rule%3D%27nonzero%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") !important;
-  width: 24px !important;
-  height: 24px !important;
-  background-size: 100% 100% !important;
-  display: block !important;
-  margin-left: -11px !important;
-  background-color: transparent !important;
-  cursor: pointer !important;
+  border: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20width%3D%2724%27%20height%3D%2724%27%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20fill%3D%27%23757575%27%3E%3Cg%20fill%3D%27none%27%20fill-rule%3D%27evenodd%27%3E%3Ccircle%20stroke%3D%27%23CCD1DA%27%20fill%3D%27%23FFF%27%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%2711.5%27%2F%3E%3Cpath%20d%3D%27M16.242%2012.012a4.25%204.25%200%2000-5.944-4.158L9.696%206.48a5.75%205.75%200%20018.048%205.532h1.263l-2.01%203.002-2.008-3.002h1.253zm-8.484-.004a4.25%204.25%200%20005.943%203.638l.6%201.375a5.75%205.75%200%2001-8.046-5.013H5.023L7.02%209.004l1.997%203.004h-1.26z%27%20fill%3D%27%23000%27%20fill-rule%3D%27nonzero%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  width: 24px;
+  height: 24px;
+  background-size: 100% 100%;
+  display: block;
+  margin-left: -11px;
+  background-color: transparent;
+  cursor: pointer;
 }
 
 .designcombo-scene-moveable .moveable-rotation .moveable-rotation-line {
-  display: none !important;
+  display: none;
 }
 
 .moveable-line {
-  pointer-events: none !important;
-  height: 1px !important;
-  background: #fff !important;
+  pointer-events: none;
+  height: 1px;
+  background: #fff;
 }
 
-/* CSS */
+/* ==========================================
+   INPUTS & SCROLL AREA
+   ========================================= */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -239,9 +268,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .ScrollAreaScrollbar {
   display: flex;
-  /* ensures no selection */
   user-select: none;
-  /* disable browser handling of all panning and zooming gestures on touch devices */
   touch-action: none;
   padding: 2px;
   background: transparent;
@@ -251,9 +278,11 @@ input[type="number"]::-webkit-outer-spin-button {
 .ScrollAreaScrollbar:hover {
   background: var(--zinc-800);
 }
+
 .ScrollAreaScrollbar[data-orientation="vertical"] {
   width: 10px;
 }
+
 .ScrollAreaScrollbar[data-orientation="horizontal"] {
   flex-direction: column;
   height: 10px;
@@ -265,7 +294,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 10px;
   position: relative;
 }
-/* increase target size for touch devices https://www.w3.org/WAI/WCAG21/Understanding/target-size.html */
+
 .ScrollAreaThumb::before {
   content: "";
   position: absolute;
@@ -278,8 +307,9 @@ input[type="number"]::-webkit-outer-spin-button {
   min-height: 44px;
 }
 
-/* CROP STYLES */
-
+/* ==========================================
+   CROP STYLES
+   ========================================== */
 .crop {
   position: relative;
   font-size: 0;
@@ -287,12 +317,6 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .options {
   margin-bottom: 0.25rem;
-}
-
-.videoPreview {
-  /* box-shadow: 0 0 20px 5px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  width: 100%; */
 }
 
 .box {
@@ -336,7 +360,6 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 3px;
 }
 
-/* nw n ne */
 .handle-nw,
 .handle-n,
 .handle-ne {
@@ -347,18 +370,18 @@ input[type="number"]::-webkit-outer-spin-button {
 .handle-n {
   border-top: 3px solid;
 }
-/* nw w sw */
+
 .handle-nw,
 .handle-w,
 .handle-sw {
   left: -3px;
   border-left: 3px solid;
 }
+
 .handle-nw {
   border-top: 3px solid;
 }
 
-/* ne e se */
 .handle-ne,
 .handle-e,
 .handle-se {
@@ -369,6 +392,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .handle-ne {
   border-top: 3px solid;
 }
+
 .handle-se {
   border-bottom: 3px solid;
 }
@@ -379,13 +403,13 @@ input[type="number"]::-webkit-outer-spin-button {
   border-left: none;
 }
 
-/* sw s se */
 .handle-sw,
 .handle-s,
 .handle-se {
   bottom: -3px;
   border-bottom: 3px solid;
 }
+
 .handle-sw {
   border-left: 3px solid;
 }

@@ -248,22 +248,36 @@ function SceneInteractions({ stateManager, viewerRef, zoom }) {
     setBackupCrop(null);
   };
 
-  useEffect(() => {
-    const handleToggleCrop = () => {
-      if (canCrop) {
-        if (!isCropping) {
-          handleStartCrop();
-        } else {
-          handleApplyCrop();
-        }
-      }
+
+useEffect(() => {
+    const handleStart = () => {
+      if (canCrop && !isCropping) handleStartCrop();
+    };
+    const handleConfirm = () => {
+      if (isCropping) handleApplyCrop();
+    };
+    const handleCancel = () => {
+      if (isCropping) handleCancelCrop();
     };
 
-    window.addEventListener("TOGGLE_CROP_MODE", handleToggleCrop);
+    window.addEventListener("START_CROP_MODE", handleStart);
+    window.addEventListener("APPLY_CROP_MODE", handleConfirm);
+    window.addEventListener("CANCEL_CROP_MODE", handleCancel);
+
+    window.dispatchEvent(
+      new CustomEvent("CROP_STATUS_UPDATED", { detail: { isCropping } })
+    );
+
     return () => {
-      window.removeEventListener("TOGGLE_CROP_MODE", handleToggleCrop);
+      window.removeEventListener("START_CROP_MODE", handleStart);
+      window.removeEventListener("APPLY_CROP_MODE", handleConfirm);
+      window.removeEventListener("CANCEL_CROP_MODE", handleCancel);
     };
   }, [canCrop, isCropping, selectedItem, cropValues]);
+
+
+
+
 
   useEffect(() => {
     if (isCropping) {
@@ -396,37 +410,33 @@ function SceneInteractions({ stateManager, viewerRef, zoom }) {
 
   return (
     <>
-      {isCropping && selectedItem && cropValues && (
-        <div
-          style={{
-            position: "absolute",
-            left: (parseFloat(selectedItem.details?.left) || 0) + cropValues.x + cropValues.width / 2,
-            top: (parseFloat(selectedItem.details?.top) || 0) + cropValues.y - (55 * (1 / (zoom || 1))),
-            transform: `translateX(-50%) scale(${1 / (zoom || 1)})`,
-            transformOrigin: "bottom center",
-            zIndex: 10001,
-            pointerEvents: "auto",
-          }}
-          className="flex items-center gap-2 bg-zinc-950/95 border-2 border-zinc-600 px-3 py-2 rounded-2xl shadow-2xl"
-        >
-          <button
-            type="button"
-            onClick={handleApplyCrop}
-            className="flex items-center justify-center h-10 w-10 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 transition-all cursor-pointer shadow-lg active:scale-90"
-            title="Confirmar Recorte"
-          >
-            <Check className="w-6 h-6 stroke-[3]" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCancelCrop}
-            className="flex items-center justify-center h-10 w-10 rounded-xl bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-all cursor-pointer shadow-lg active:scale-90"
-            title="Cancelar Recorte"
-          >
-            <RotateCcw className="w-6 h-6 stroke-[2.5]" />
-          </button>
-        </div>
-      )}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       {isCropping && selectedItem && cropValues && (
         <CropOverlay
@@ -864,6 +874,8 @@ function SceneBoard({ size, children }) {
 // ==========================================
 // 6. REPRODUTOR REMOTION EMBUTIDO (Player)
 // ==========================================
+
+
 function Player() {
   const playerRef = useRef(null);
   const { setPlayerRef, duration, fps, size } = useStore();
@@ -895,6 +907,13 @@ export default function Scene({ stateManager }) {
   const { size, trackItemIds } = useStore();
   const { zoom, handlePinch } = useZoom(containerRef, viewerRef, size);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      viewerRef.current?.infiniteViewer?.scrollCenter();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [trackItemIds.length]);
+
   return (
     <div
       style={{
@@ -906,6 +925,10 @@ export default function Scene({ stateManager }) {
       ref={containerRef}
     >
       {trackItemIds.length === 0 && <SceneEmpty />}
+
+
+
+      
       <Viewer
         ref={viewerRef}
         className="player-container bg-sidebar"

@@ -650,26 +650,58 @@ export const calculateMediaStyles = (details, crop) => ({
   ...calculateCropStyles(details, crop),
 });
 
-export const calculateTextStyles = (details) => ({
-  position: "relative",
-  textDecoration: details.textDecoration || "none",
-  WebkitTextStroke: `${details.borderWidth}px ${details.borderColor}`,
-  paintOrder: "stroke fill",
-  textShadow: details.boxShadow
-    ? `${details.boxShadow.x}px ${details.boxShadow.y}px ${details.boxShadow.blur}px ${details.boxShadow.color}`
-    : "",
-  fontFamily: details.fontFamily || "Arial",
-  fontWeight: details.fontWeight || "normal",
-  lineHeight: details.lineHeight || "normal",
-  letterSpacing: details.letterSpacing || "normal",
-  wordSpacing: details.wordSpacing || "normal",
-  wordWrap: details.wordWrap || "normal",
-  wordBreak: details.wordBreak || "normal",
-  textTransform: details.textTransform || "none",
-  fontSize: details.fontSize || "16px",
-  textAlign: details.textAlign || "left",
-  color: details.color || "#000000",
-});
+
+
+
+
+
+export const calculateTextStyles = (details) => {
+  const hasBorder = details.borderWidth && details.borderColor && details.borderColor !== "transparent";
+  
+  let computedShadow = "";
+  if (typeof details.boxShadow === "string") {
+    computedShadow = details.boxShadow;
+  } else if (details.boxShadow?.color) {
+    computedShadow = `${details.boxShadow.x || 0}px ${details.boxShadow.y || 0}px ${details.boxShadow.blur || 0}px ${details.boxShadow.color}`;
+  }
+
+  return {
+    position: "relative",
+    textDecoration: details.textDecoration || "none",
+    WebkitTextStroke: hasBorder ? `${details.borderWidth}px ${details.borderColor}` : "none",
+    paintOrder: "stroke fill",
+    textShadow: computedShadow || "none",
+    fontFamily: details.fontFamily || "Arial",
+    fontWeight: details.fontWeight || "bold",
+    lineHeight: details.lineHeight || "normal",
+    letterSpacing: details.letterSpacing || "normal",
+    wordSpacing: details.wordSpacing || "normal",
+    wordWrap: details.wordWrap || "normal",
+    wordBreak: details.wordBreak || "normal",
+    textTransform: details.textTransform || "none",
+    fontSize: details.fontSize ? (typeof details.fontSize === "number" ? `${details.fontSize}px` : details.fontSize) : "60px",
+    textAlign: details.textAlign || "center",
+    color: details.color || "#ffffff",
+    backgroundColor: details.backgroundColor || "transparent",
+    borderRadius: details.borderRadius || (details.backgroundColor ? "8px" : "0px"),
+    padding: details.padding || (details.backgroundColor ? "8px 16px" : "0px"),
+
+display: "block",
+  };
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export const calculateContainerStyles = (details, crop = {}, overrides = {}) => {
   const hasCrop = crop && crop.width > 0 && crop.height > 0;
@@ -744,19 +776,32 @@ export function useZoom(containerRef, viewerRef, size) {
     if (!container) return;
 
     const PADDING = 96;
-    const containerHeight = container.clientHeight - PADDING;
-    const containerWidth = container.clientWidth - PADDING;
+    const containerHeight = Math.max(container.clientHeight - PADDING, 100);
+    const containerWidth = Math.max(container.clientWidth - PADDING, 100);
     const { width, height } = size;
 
-    viewerRef.current?.infiniteViewer.scrollCenter();
     const desiredZoom = Math.min(
       containerWidth / width,
       containerHeight / height
     );
     currentZoomRef.current = desiredZoom;
     setZoom(desiredZoom);
+
+    requestAnimationFrame(() => {
+      viewerRef.current?.infiniteViewer?.scrollCenter();
+    });
   }, [size, containerRef, viewerRef]);
 
+
+
+
+
+
+
+
+
+
+  
   const handlePinch = useCallback((e) => {
     const deltaY = e.inputEvent.deltaY;
     const changer = deltaY > 0 ? 0.0085 : -0.0085;
