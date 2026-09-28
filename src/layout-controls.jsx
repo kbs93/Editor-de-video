@@ -271,36 +271,80 @@ export function Navbar() {
   );
 }
 
+
+
+
+
+
 export function Menu() {
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
+  // 3 campos de rascunho com o botão '+' no centro conforme o rascunho
+  const [slots, setSlots] = useState([
+    { id: 1, type: null, data: null, preview: null, textContent: null },
+    { id: 2, type: null, data: null, preview: null, textContent: null },
+    { id: 3, type: null, data: null, preview: null, textContent: null },
+  ]);
+
+  const addMediaToFirstFreeSlot = (item) => {
+    setSlots((prev) => {
+      const freeIndex = prev.findIndex((s) => !s.data);
+      const targetIndex = freeIndex !== -1 ? freeIndex : 0;
+      const updated = [...prev];
+      updated[targetIndex] = { ...updated[targetIndex], ...item };
+      return updated;
+    });
+  };
+
+  const handleClearSlot = (slotId, e) => {
+    e.stopPropagation();
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.id === slotId
+          ? { id: slotId, type: null, data: null, preview: null, textContent: null }
+          : s
+      )
+    );
+  };
+
+const handleDragStart = (e, slot) => {
+    if (!slot.data) return;
+    const dragPayload = JSON.stringify(slot.data);
+    e.dataTransfer.setData("application/json", dragPayload);
+    e.dataTransfer.setData("text/plain", dragPayload);
+    e.dataTransfer.effectAllowed = "copyMove";
+  };
   const handleAddText = () => {
     const defaultText = "Texto";
-    dispatch(ADD_TEXT, {
-      payload: {
-        id: nanoid(),
-        type: "text",
-        name: defaultText,
-        text: defaultText,
-        display: {
-          from: 0,
-          to: 5000,
-        },
-        details: {
-          text: defaultText,
-          fontFamily: SECONDARY_FONT,
-          fontUrl: SECONDARY_FONT_URL,
-          fontSize: 90,
-          width: 600,
-          height: 120,
-          left: 100,
-          top: 100,
-          textAlign: "center",
-          opacity: 100,
-        },
+    const payload = {
+      id: nanoid(),
+      type: "text",
+      name: defaultText,
+      text: defaultText,
+      display: {
+        from: 0,
+        to: 5000,
       },
+      details: {
+        text: defaultText,
+        fontFamily: SECONDARY_FONT,
+        fontUrl: SECONDARY_FONT_URL,
+        fontSize: 90,
+        width: 600,
+        height: 120,
+        left: 100,
+        top: 100,
+        textAlign: "center",
+        opacity: 100,
+      },
+    };
+
+    addMediaToFirstFreeSlot({
+      type: "text",
+      data: payload,
+      textContent: defaultText,
     });
   };
 
@@ -315,29 +359,33 @@ export function Menu() {
       const width = img.naturalWidth || 800;
       const height = img.naturalHeight || 600;
 
-      dispatch(ADD_IMAGE, {
-        payload: {
-          id: nanoid(),
-          type: "image",
-          display: {
-            from: 0,
-            to: 5000,
-          },
-          details: {
-            src,
+      const payload = {
+        id: nanoid(),
+        type: "image",
+        display: {
+          from: 0,
+          to: 5000,
+        },
+        details: {
+          src,
+          width,
+          height,
+          left: 0,
+          top: 0,
+          opacity: 100,
+          crop: {
+            x: 0,
+            y: 0,
             width,
             height,
-            left: 0,
-            top: 0,
-            opacity: 100,
-            crop: {
-              x: 0,
-              y: 0,
-              width,
-              height,
-            },
           },
         },
+      };
+
+      addMediaToFirstFreeSlot({
+        type: "image",
+        data: payload,
+        preview: src,
       });
     };
     e.target.value = "";
@@ -352,28 +400,32 @@ export function Menu() {
     audio.src = src;
     audio.onloadedmetadata = () => {
       const durationMs = Math.round(audio.duration * 1000) || 5000;
-      dispatch(ADD_AUDIO, {
-        payload: {
-          id: nanoid(),
-          type: "audio",
-          duration: durationMs,
-          display: {
-            from: 0,
-            to: durationMs,
-          },
-          trim: {
-            from: 0,
-            to: durationMs,
-          },
-          details: {
-            src,
-            volume: 100,
-            left: 0,
-            top: 0,
-            width: 0,
-            height: 0,
-          },
+      const payload = {
+        id: nanoid(),
+        type: "audio",
+        duration: durationMs,
+        display: {
+          from: 0,
+          to: durationMs,
         },
+        trim: {
+          from: 0,
+          to: durationMs,
+        },
+        details: {
+          src,
+          volume: 100,
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+        },
+      };
+
+      addMediaToFirstFreeSlot({
+        type: "audio",
+        data: payload,
+        preview: null,
       });
     };
     e.target.value = "";
@@ -414,40 +466,44 @@ export function Menu() {
         dispatch("CHANGE_DURATION", { payload: { duration: realDuration } });
       }
 
-      dispatch(ADD_VIDEO, {
-        payload: {
-          id: nanoid(),
-          type: "video",
-          duration: realDuration,
-          display: {
-            from: 0,
-            to: realDuration,
-          },
-          trim: {
-            from: 0,
-            to: realDuration,
-          },
-          metadata: {
-            previewUrl,
-            naturalWidth: video.videoWidth || 1920,
-            naturalHeight: video.videoHeight || 1080,
-          },
-          details: {
-            src,
+      const payload = {
+        id: nanoid(),
+        type: "video",
+        duration: realDuration,
+        display: {
+          from: 0,
+          to: realDuration,
+        },
+        trim: {
+          from: 0,
+          to: realDuration,
+        },
+        metadata: {
+          previewUrl,
+          naturalWidth: video.videoWidth || 1920,
+          naturalHeight: video.videoHeight || 1080,
+        },
+        details: {
+          src,
+          width: canvasW,
+          height: canvasH,
+          left: 0,
+          top: 0,
+          volume: 100,
+          opacity: 100,
+          crop: {
+            x: 0,
+            y: 0,
             width: canvasW,
             height: canvasH,
-            left: 0,
-            top: 0,
-            volume: 100,
-            opacity: 100,
-            crop: {
-              x: 0,
-              y: 0,
-              width: canvasW,
-              height: canvasH,
-            },
           },
         },
+      };
+
+      addMediaToFirstFreeSlot({
+        type: "video",
+        data: payload,
+        preview: previewUrl,
       });
     };
 
@@ -455,62 +511,128 @@ export function Menu() {
   };
 
   return (
-    <div className="w-60 bg-sidebar">
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageUpload}
-      />
-      <input
-        ref={audioInputRef}
-        type="file"
-        accept="audio/*"
-        className="hidden"
-        onChange={handleAudioUpload}
-      />
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleVideoUpload}
-      />
+    <div className="flex h-full bg-sidebar border-r border-border/60 select-none">
+      {/* 1. SEUS BOTÕES ORIGINAIS */}
+      <div className="w-36 p-3 flex flex-col justify-start">
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+        <input
+          ref={audioInputRef}
+          type="file"
+          accept="audio/*"
+          className="hidden"
+          onChange={handleAudioUpload}
+        />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={handleVideoUpload}
+        />
 
-      <div className="px-4 mt-4 text-muted-foreground">Adicionar itens</div>
-      <div className="space-y-2 p-4">
-        <Button
-          onClick={handleAddText}
-          variant="secondary"
-          className="w-full cursor-pointer"
-        >
-          Adicionar texto
-        </Button>
-        <Button
-          onClick={() => imageInputRef.current?.click()}
-          variant="secondary"
-          className="w-full cursor-pointer"
-        >
-          Adicionar imagem
-        </Button>
-        <Button
-          onClick={() => audioInputRef.current?.click()}
-          variant="secondary"
-          className="w-full cursor-pointer"
-        >
-          Adicionar áudio
-        </Button>
-        <Button
-          onClick={() => videoInputRef.current?.click()}
-          variant="secondary"
-          className="w-full cursor-pointer"
-        >
-          Adicionar vídeo
-        </Button>
+        <div className="mb-3 text-xs font-medium text-zinc-400">itens</div>
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={handleAddText}
+            variant="secondary"
+            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8"
+          >
+            texto
+          </Button>
+          <Button
+            onClick={() => imageInputRef.current?.click()}
+            variant="secondary"
+            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8"
+          >
+            imagem
+          </Button>
+          <Button
+            onClick={() => audioInputRef.current?.click()}
+            variant="secondary"
+            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8"
+          >
+            áudio
+          </Button>
+          <Button
+            onClick={() => videoInputRef.current?.click()}
+            variant="secondary"
+            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8"
+          >
+            vídeo
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. OS 3 CAMPOS CONFORME O SEU RASCUNHO */}
+      <div className="flex flex-col justify-between w-60 p-3 border-l border-border/50 bg-[#121214]">
+        {slots.map((slot) => (
+          <div
+            key={slot.id}
+            draggable={!!slot.data}
+            onDragStart={(e) => handleDragStart(e, slot)}
+            className={`relative flex items-center justify-center h-[30%] w-full rounded border border-zinc-700/60 transition-all overflow-hidden ${
+              slot.data
+                ? "bg-zinc-900 border-zinc-500 cursor-grab active:cursor-grabbing shadow-md"
+                : "bg-transparent text-zinc-600"
+            }`}
+          >
+            {slot.data ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => handleClearSlot(slot.id, e)}
+                  className="absolute top-1 right-1 z-20 h-4 w-4 rounded-full bg-black/80 hover:bg-red-600 text-white flex items-center justify-center text-[10px] cursor-pointer"
+                  title="Remover"
+                >
+                  ✕
+                </button>
+                <div className="absolute bottom-1 left-1 z-20 px-1 py-0.5 rounded bg-black/80 text-[8px] text-zinc-300 font-bold uppercase">
+                  {slot.type}
+                </div>
+                {slot.type === "image" && (
+                  <img src={slot.preview} alt="" className="w-full h-full object-cover" />
+                )}
+                {slot.type === "video" && (
+                  <img src={slot.preview} alt="" className="w-full h-full object-cover" />
+                )}
+                {slot.type === "audio" && (
+                  <span className="text-xs text-zinc-300 font-medium">🎵 Áudio</span>
+                )}
+                {slot.type === "text" && (
+                  <div className="p-2 text-center text-xs font-semibold text-zinc-100 line-clamp-3">
+                    "{slot.textContent}"
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-8 w-8 rounded border border-zinc-700 bg-zinc-800/40 text-zinc-400 text-sm">
+                +
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 export default { Navbar, Menu };

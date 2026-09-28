@@ -15,6 +15,7 @@ import {
   ResizablePanelGroup,
 } from "./ui-components.jsx";
 
+
 const stateManager = new StateManager({
   size: {
     width: 1920,
@@ -83,7 +84,8 @@ const Editor = () => {
       </header>
       <div className="flex flex-1 overflow-hidden relative z-0">
         <ResizablePanelGroup style={{ flex: 1 }} direction="vertical">
-          <ResizablePanel className="relative" defaultSize={70}>
+
+    <ResizablePanel className="relative" defaultSize={70}>
             <div className="flex h-full flex-1">
               <Menu />
               <div
@@ -99,6 +101,8 @@ const Editor = () => {
               </div>
             </div>
           </ResizablePanel>
+
+   
           <ResizableHandle />
           <ResizablePanel
             className="min-h-[50px]"

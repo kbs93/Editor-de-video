@@ -3,7 +3,7 @@ import { Player as RemotionPlayer } from "@remotion/player";
 import { Moveable, Selection, Viewer } from "@interactify/toolkit";
 import { Check, PlusIcon, RotateCcw } from "lucide-react";
 import { dispatch } from "@designcombo/events";
-import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO, EDIT_OBJECT } from "@designcombo/state";
+import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO, ADD_TEXT, EDIT_OBJECT } from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
 
 import Composition from "./composition";
@@ -639,6 +639,7 @@ const AcceptedDropTypes = {
   IMAGE: "image",
   VIDEO: "video",
   AUDIO: "audio",
+  TEXT: "text",
 };
 
 function DroppableArea({
@@ -663,26 +664,25 @@ function DroppableArea({
       case AcceptedDropTypes.AUDIO:
         dispatch(ADD_AUDIO, { payload });
         break;
+      case AcceptedDropTypes.TEXT:
+        dispatch(ADD_TEXT, { payload });
+        break;
       default:
         break;
     }
   }, []);
 
-  const onDragEnter = useCallback(
+
+
+
+
+
+const onDragEnter = useCallback(
     (e) => {
       e.preventDefault();
-      try {
-        const draggedDataString = e.dataTransfer?.types[0];
-        if (!draggedDataString) return;
-        const draggedData = JSON.parse(draggedDataString);
-
-        if (!Object.values(AcceptedDropTypes).includes(draggedData.type)) return;
-        setIsDraggingOver(true);
-        setIsPointerInside(true);
-        onDragStateChange?.(true);
-      } catch (error) {
-        console.error("Error parsing dragged data:", error);
-      }
+      setIsDraggingOver(true);
+      setIsPointerInside(true);
+      onDragStateChange?.(true);
     },
     [onDragStateChange]
   );
@@ -700,23 +700,40 @@ function DroppableArea({
 
   const onDrop = useCallback(
     (e) => {
-      if (!isDraggingOver) return;
       e.preventDefault();
       setIsDraggingOver(false);
+      setIsPointerInside(false);
       onDragStateChange?.(false);
 
       try {
-        const draggedDataString = e.dataTransfer?.types[0];
-        const draggedData = JSON.parse(
-          e.dataTransfer.getData(draggedDataString)
-        );
-        handleDrop(draggedData);
+        const rawData =
+          e.dataTransfer.getData("application/json") ||
+          e.dataTransfer.getData("text/plain");
+
+        if (!rawData) return;
+        const draggedData = JSON.parse(rawData);
+
+        if (draggedData && Object.values(AcceptedDropTypes).includes(draggedData.type)) {
+          handleDrop(draggedData);
+        }
       } catch (error) {
-        console.error("Error parsing dropped data:", error);
+        console.error("Erro ao processar dados largados:", error);
       }
     },
-    [isDraggingOver, onDragStateChange, handleDrop]
+    [onDragStateChange, handleDrop]
   );
+
+
+
+
+
+
+
+
+
+
+
+
 
   const onDragLeave = useCallback(
     (e) => {

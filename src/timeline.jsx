@@ -258,12 +258,18 @@ class TextItem extends CaptionBase {
     return { controls: createResizeControls() };
   }
 
-  constructor(props) {
+
+
+
+
+
+constructor(props) {
     super(props);
     this.itemType = "text";
     this.fill = "#2e2e48";
-    this.name = props.name || props.details?.text || props.text || "Texto";
-    this.text = this.name;
+    this.details = props.details || {};
+    this.text = props.details?.text || props.text || props.name || "Texto";
+    this.name = this.text;
   }
 
   set(key, value) {
@@ -272,21 +278,64 @@ class TextItem extends CaptionBase {
       this.name = value;
       this.text = value;
       this.canvas?.requestRenderAll();
-    } else if (key === "details" && value?.text) {
-      this.name = value.text;
-      this.text = value.text;
+    } else if (key === "details") {
+      this.details = value || {};
+      if (value?.text) {
+        this.name = value.text;
+        this.text = value.text;
+      }
       this.canvas?.requestRenderAll();
     }
     return this;
   }
 
   _render(ctx) {
-    super._render(ctx);
+    // Desenha o retângulo de fundo do bloco
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(
+      -this.width / 2,
+      -this.height / 2,
+      this.width,
+      this.height,
+      6
+    );
+    ctx.fillStyle = this.fill;
+    ctx.fill();
+    ctx.restore();
+
+    // Desenha o texto dinâmico e a borda de seleção sem chamar o super._render que força "Texto"
     this.drawTextIdentity(ctx);
     this.updateSelected(ctx);
   }
 
-  drawTextIdentity(ctx) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+drawTextIdentity(ctx) {
     ctx.save();
     ctx.translate(-this.width / 2, -this.height / 2);
     ctx.font = `600 12px ${SECONDARY_FONT || "sans-serif"}`;
@@ -294,23 +343,33 @@ class TextItem extends CaptionBase {
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
 
-    const label = this.name || this.text || this.details?.text || "Texto";
-    const availableWidth = Math.max(10, this.width - 24);
+    // Busca o texto atualizado diretamente dos detalhes na store ou no próprio objeto
+    const storeDetails = useStore.getState().trackItemDetailsMap?.[this.id];
+    const rawLabel =
+      storeDetails?.text ||
+      this.details?.text ||
+      this.text ||
+      this.name ||
+      "Texto";
+// Limpa tags HTML (div, br, p) geradas pelo editor de texto e unifica quebras em espaço
+    const label = String(rawLabel)
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    let displayText = label;
-    if (ctx.measureText(displayText).width > availableWidth) {
-      while (
-        ctx.measureText(displayText + "...").width > availableWidth &&
-        displayText.length > 0
-      ) {
-        displayText = displayText.slice(0, -1);
-      }
-      displayText += "...";
-    }
+    // Aplica recorte de área (clip) para o texto não vazar os cantos do bloco, mas renderiza o texto integralmente sem cortar com reticências
+    ctx.beginPath();
+    ctx.rect(12, 0, Math.max(0, this.width - 24), this.height);
+    ctx.clip();
 
-    ctx.fillText(displayText, 12, this.height / 2);
+    ctx.fillText(label, 12, this.height / 2);
+
     ctx.restore();
   }
+
+
+
+
 
   updateSelected(ctx) {
     const borderColor = this.isSelected
@@ -1410,10 +1469,29 @@ const Timeline = ({ stateManager }) => {
         tracks: currentState.tracks,
       });
     });
-    const updateItemDetailsSubscription = stateManager.subscribeToUpdateItemDetails(() => {
+
+const updateItemDetailsSubscription = stateManager.subscribeToUpdateItemDetails((payload) => {
       const currentState = stateManager.getState();
       setState({ trackItemDetailsMap: currentState.trackItemDetailsMap });
+
+      // Atualiza o objeto dentro do canvas da timeline e força o redesenho imediato
+      if (canvas && payload) {
+        const objects = canvas.getObjects ? canvas.getObjects() : [];
+        Object.keys(payload).forEach((id) => {
+          const item = objects.find((obj) => obj.id === id);
+          if (item) {
+            const newText = payload[id]?.details?.text ?? payload[id]?.text;
+            if (newText !== undefined) {
+              item.name = newText;
+              item.text = newText;
+              if (item.details) item.details.text = newText;
+            }
+          }
+        });
+        canvas.requestRenderAll();
+      }
     });
+   
 
     return () => {
       canvas.purge();
@@ -1426,12 +1504,10 @@ const Timeline = ({ stateManager }) => {
       resizeDesignSubscription.unsubscribe();
     };
   }, []);
-
-  const handleOnScrollH = (e) => {
+const handleOnScrollH = (e) => {
     const nextScrollLeft = e.currentTarget.scrollLeft;
-    if (canScrollRef.current) {
-      canvasRef.current?.scrollTo({ scrollLeft: nextScrollLeft });
-    }
+    // Remove o bloqueio condicional para garantir a sincronia sempre que a barra mover
+    canvasRef.current?.scrollTo({ scrollLeft: nextScrollLeft });
     setScrollLeft(nextScrollLeft);
   };
 
@@ -1486,29 +1562,71 @@ const Timeline = ({ stateManager }) => {
           <div style={{ height: canvasSize.height }} ref={containerRef} className="absolute top-0 w-full">
             <canvas id="designcombo-timeline-canvas" ref={canvasElRef} />
           </div>
-          <ScrollArea.Root
+
+
+
+
+
+<ScrollArea.Root
             type="always"
-            style={{ position: "absolute", width: "calc(100vw - 40px)", height: "10px" }}
-            className="ScrollAreaRootH"
-            onPointerDown={() => { canScrollRef.current = true; }}
-            onPointerUp={() => { canScrollRef.current = false; }}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              height: "14px",
+              zIndex: 30,
+            }}
+            className="ScrollAreaRootH bg-[#121214]"
+            onPointerDown={() => {
+              canScrollRef.current = true;
+            }}
+            onPointerUp={() => {
+              canScrollRef.current = false;
+            }}
           >
-            <ScrollArea.Viewport onScroll={handleOnScrollH} className="ScrollAreaViewport" id="viewportH" ref={horizontalScrollbarVpRef}>
-              <div
+            <ScrollArea.Viewport
+              onScroll={handleOnScrollH}
+              className="w-full h-full"
+              id="viewportH"
+              ref={horizontalScrollbarVpRef}
+            >
+             <div
                 style={{
-                  width: size.width > canvasSize.width ? size.width + TIMELINE_OFFSET_CANVAS_RIGHT : size.width,
+                  width: Math.max(
+                    size.width + TIMELINE_OFFSET_CANVAS_RIGHT,
+                    timeMsToUnits(duration, scale.zoom) + TIMELINE_OFFSET_CANVAS_RIGHT + 200,
+                    canvasSize.width
+                  ),
                 }}
-                className="pointer-events-none h-[10px]"
+                className="pointer-events-none h-[14px]"
               />
             </ScrollArea.Viewport>
-            <ScrollArea.Scrollbar className="ScrollAreaScrollbar" orientation="horizontal">
+            <ScrollArea.Scrollbar
+              className="flex select-none touch-none p-0.5 bg-[#18181b] transition-colors duration-150 ease-out hover:bg-[#202024] data-[orientation=horizontal]:h-3.5 data-[orientation=horizontal]:flex-col"
+              orientation="horizontal"
+            >
               <ScrollArea.Thumb
-                onMouseDown={() => { canScrollRef.current = true; }}
-                onMouseUp={() => { canScrollRef.current = false; }}
-                className="ScrollAreaThumb"
+                onMouseDown={() => {
+                  canScrollRef.current = true;
+                }}
+                onMouseUp={() => {
+                  canScrollRef.current = false;
+                }}
+                className="relative flex-1 rounded-full bg-[#52525b] hover:bg-[#71717a] active:bg-[#a1a1aa] transition-colors"
               />
             </ScrollArea.Scrollbar>
           </ScrollArea.Root>
+
+
+
+
+
+
+
+
+
+
 
           <ScrollArea.Root
             type="always"
