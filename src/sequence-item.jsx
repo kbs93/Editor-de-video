@@ -323,17 +323,13 @@ export const SequenceItem = {
         durationInFrames={durationInFrames}
         style={{ pointerEvents: "none", zIndex }}
       >
-
-
-
-
-<div
+        <div
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
           style={{
             ...calculateContainerStyles(details),
             position: "absolute",
-            width: details.width || 400,
+            width: details.width || 300,
             height: details.height || "auto",
             overflow: "hidden",
             pointerEvents: "auto",
@@ -368,16 +364,6 @@ export const SequenceItem = {
             />
           </Animated>
         </div>
-
-
-
-
-
-
-
-
-
-
       </Sequence>
     );
   },
@@ -435,7 +421,27 @@ export const SequenceItem = {
     );
   },
 
-  video: (item, options) => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+video: (item, options) => {
     const { fps, zIndex } = options;
     const { details, animations } = item;
     const { animationIn, animationOut } = getAnimations(animations);
@@ -461,6 +467,7 @@ export const SequenceItem = {
 
     const containerW = hasCrop ? crop.width : details.width || "100%";
     const containerH = hasCrop ? crop.height : details.height || "auto";
+    const containerStyles = calculateContainerStyles(details, crop);
 
     return (
       <Sequence
@@ -473,7 +480,7 @@ export const SequenceItem = {
           data-track-item="transition-element"
           className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
           style={{
-            ...calculateContainerStyles(details, crop),
+            ...containerStyles,
             position: "absolute",
             width: containerW,
             height: containerH,
@@ -502,7 +509,7 @@ export const SequenceItem = {
                 pointerEvents: "none",
               }}
             >
-              <OffthreadVideo
+         <OffthreadVideo
                 startFrom={(item.trim?.from / 1000) * fps}
                 endAt={(item.trim?.to / 1000) * fps}
                 playbackRate={playbackRate}
@@ -512,7 +519,13 @@ export const SequenceItem = {
                   pointerEvents: "none",
                   width: details.width,
                   height: details.height,
+                  filter: calculateContainerStyles(details, crop).filter,
+                  mixBlendMode: calculateContainerStyles(details, crop).mixBlendMode,
                 }}
+      
+
+
+
               />
             </div>
           </Animated>
@@ -520,6 +533,15 @@ export const SequenceItem = {
       </Sequence>
     );
   },
+
+
+
+
+
+
+
+
+
 
   audio: (item, options) => {
     const { fps, zIndex } = options;

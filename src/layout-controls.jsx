@@ -1,14 +1,12 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "./ui-components.jsx";
 import { dispatch } from "@designcombo/events";
+
 import {
   HISTORY_UNDO,
   HISTORY_REDO,
-  ADD_AUDIO,
-  ADD_IMAGE,
-  ADD_TEXT,
-  ADD_VIDEO,
 } from "@designcombo/state";
+
 import {
   MenuIcon,
   ShareIcon,
@@ -20,7 +18,7 @@ import {
   Crop,
 } from "lucide-react";
 import { nanoid } from "nanoid";
-import useStore, { SECONDARY_FONT, SECONDARY_FONT_URL } from "./editor-store.js";
+import useStore, { SECONDARY_FONT, SECONDARY_FONT_URL, TRANSITIONS } from "./editor-store.js";
 
 const ASPECT_RATIOS = [
   {
@@ -522,19 +520,82 @@ const TEXT_PRESETS = [
   },
 ];
 
+
+
+
+
 export function Menu() {
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  // Alterna a exibição da gaveta intermediária de estilos
-  const [showTextStyles, setShowTextStyles] = useState(false);
+  // Painel lateral aberto ("text" | "effects" | "speed" | null)
+  const [activePanel, setActivePanel] = useState(null);
 
   const [slots, setSlots] = useState([
     { id: 1, type: null, data: null, preview: null, textContent: null },
     { id: 2, type: null, data: null, preview: null, textContent: null },
     { id: 3, type: null, data: null, preview: null, textContent: null },
   ]);
+
+
+
+// Função central que atualiza o item selecionado no Zustand e notifica o motor do DesignCombo
+// Função central: aplica os efeitos directamente no item activo e sincroniza o player
+  const updateActiveItemProperty = (propertyPatch) => {
+    const state = useStore.getState();
+    const { activeIds, trackItemIds, trackItemsMap, trackItemDetailsMap, setState, playerRef } = state;
+    
+    // Obtém o elemento activo ou o primeiro elemento no palco
+    const activeId = (activeIds && activeIds.length > 0) ? activeIds[0] : trackItemIds[0];
+    if (!activeId) return;
+
+    const currentItem = trackItemsMap[activeId] || {};
+    const currentDetails = trackItemDetailsMap[activeId] || currentItem.details || {};
+
+    const updatedDetails = {
+      ...currentDetails,
+      ...(propertyPatch.details || {}),
+      effects: {
+        ...(currentDetails.effects || {}),
+        ...(propertyPatch.details?.effects || {}),
+      },
+    };
+
+    const updatedItem = {
+      ...currentItem,
+      ...propertyPatch,
+      details: updatedDetails,
+    };
+
+    setState({
+      activeIds: [activeId],
+      trackItemDetailsMap: {
+        ...trackItemDetailsMap,
+        [activeId]: updatedDetails,
+      },
+      trackItemsMap: {
+        ...trackItemsMap,
+        [activeId]: updatedItem,
+      },
+    });
+
+    // Força o Remotion Player a redesenhar o quadro com o novo filtro aplicado
+    if (playerRef?.current) {
+      const currentFrame = playerRef.current.getCurrentFrame();
+      playerRef.current.seekTo(currentFrame);
+    }
+  };
+
+
+
+
+
+
+
+
+
+
 
   const addMediaToFirstFreeSlot = (item) => {
     setSlots((prev) => {
@@ -565,9 +626,7 @@ export function Menu() {
     e.dataTransfer.effectAllowed = "copyMove";
   };
 
-
-
-const handleSelectTextPreset = (preset) => {
+  const handleSelectTextPreset = (preset) => {
     const { size } = useStore.getState();
     const canvasWidth = size?.width || 1920;
     const canvasHeight = size?.height || 1080;
@@ -605,10 +664,6 @@ const handleSelectTextPreset = (preset) => {
         padding: preset.details.backgroundColor ? "10px 20px" : "0px",
       },
     };
-
-
-
-
 
     addMediaToFirstFreeSlot({
       type: "text",
@@ -711,21 +766,26 @@ const handleSelectTextPreset = (preset) => {
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
+    video.crossOrigin = "anonymous";
 
-    video.onloadeddata = () => {
+    video.onloadedmetadata = () => {
+      video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+    };
+
+    video.onseeked = () => {
       const realDuration =
         video.duration && !isNaN(video.duration) && isFinite(video.duration)
           ? Math.round(video.duration * 1000)
           : 10000;
 
       const canvas = document.createElement("canvas");
-      canvas.width = 160;
-      canvas.height = 90;
+      canvas.width = 320;
+      canvas.height = 180;
       const ctx = canvas.getContext("2d");
       try {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       } catch (err) {}
-      const previewUrl = canvas.toDataURL("image/jpeg", 0.7);
+      const previewUrl = canvas.toDataURL("image/jpeg", 0.85);
 
       const { size, duration: currentGlobalDuration } = useStore.getState();
       const canvasW = size?.width || 1920;
@@ -780,10 +840,90 @@ const handleSelectTextPreset = (preset) => {
     e.target.value = "";
   };
 
-  return (
+  const handleSelectTransition = (trans) => {
+    const payload = {
+      id: nanoid(),
+      type: "transition",
+      name: trans.name || trans.kind,
+      kind: trans.kind,
+      duration: trans.duration || 0.5,
+      direction: trans.direction || "from-bottom",
+      preview: trans.preview,
+    };
+    addMediaToFirstFreeSlot({
+      type: "transition",
+      data: payload,
+      preview: trans.preview,
+      textContent: trans.name || trans.kind,
+    });
+  };
 
-<div className="flex h-full bg-sidebar border-r border-border/60 select-none shrink-0 overflow-visible">
-   
+  // Aplica a Velocidade (Playback Rate) na Mídia Ativa
+  const handleApplySpeed = (speedMultiplier) => {
+    updateActiveItemProperty({
+      playbackRate: speedMultiplier,
+      details: { playbackRate: speedMultiplier },
+    });
+  };
+
+  // Cria a Legenda e Insere no Vídeo e no Rascunho
+  const handleCreateCaption = () => {
+    const captionId = nanoid();
+    const defaultCaptionText = "Sua legenda aqui";
+    const { size, duration, trackItemIds, trackItemsMap, trackItemDetailsMap, setState } = useStore.getState();
+
+    const canvasWidth = size?.width || 1920;
+    const canvasHeight = size?.height || 1080;
+
+    const newCaptionItem = {
+      id: captionId,
+      type: "caption",
+      name: "Legenda",
+      display: {
+        from: 0,
+        to: Math.min(5000, duration || 5000),
+      },
+      details: {
+        text: defaultCaptionText,
+        fontFamily: SECONDARY_FONT,
+        fontUrl: SECONDARY_FONT_URL,
+        fontSize: 54,
+        width: 900,
+        height: 120,
+        left: (canvasWidth - 900) / 2,
+        top: canvasHeight - 220,
+        textAlign: "center",
+        color: "#fde047",
+        fontWeight: "800",
+        backgroundColor: "rgba(0, 0, 0, 0.85)",
+        borderRadius: "8px",
+        padding: "8px 24px",
+      },
+    };
+
+    // Insere no palco e seleciona imediatamente
+    setState({
+      trackItemIds: [...trackItemIds, captionId],
+      trackItemsMap: {
+        ...trackItemsMap,
+        [captionId]: newCaptionItem,
+      },
+      trackItemDetailsMap: {
+        ...trackItemDetailsMap,
+        [captionId]: newCaptionItem.details,
+      },
+      activeIds: [captionId],
+    });
+
+    addMediaToFirstFreeSlot({
+      type: "caption",
+      data: newCaptionItem,
+      textContent: defaultCaptionText,
+    });
+  };
+
+  return (
+    <div className="flex h-full bg-sidebar border-r border-border/60 select-none shrink-0 overflow-visible">
       {/* 1. BARRA DE BOTÕES (itens) */}
       <div className="w-36 p-3 flex flex-col justify-start shrink-0">
         <input
@@ -811,10 +951,10 @@ const handleSelectTextPreset = (preset) => {
         <div className="mb-3 text-xs font-medium text-zinc-400">itens</div>
         <div className="flex flex-col gap-2">
           <Button
-            onClick={() => setShowTextStyles((prev) => !prev)}
+            onClick={() => setActivePanel((prev) => (prev === "text" ? null : "text"))}
             variant="secondary"
             className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
-              showTextStyles
+              activePanel === "text"
                 ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
                 : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
             }`}
@@ -823,7 +963,7 @@ const handleSelectTextPreset = (preset) => {
           </Button>
           <Button
             onClick={() => {
-              setShowTextStyles(false);
+              setActivePanel(null);
               imageInputRef.current?.click();
             }}
             variant="secondary"
@@ -833,7 +973,7 @@ const handleSelectTextPreset = (preset) => {
           </Button>
           <Button
             onClick={() => {
-              setShowTextStyles(false);
+              setActivePanel(null);
               audioInputRef.current?.click();
             }}
             variant="secondary"
@@ -843,7 +983,7 @@ const handleSelectTextPreset = (preset) => {
           </Button>
           <Button
             onClick={() => {
-              setShowTextStyles(false);
+              setActivePanel(null);
               videoInputRef.current?.click();
             }}
             variant="secondary"
@@ -851,27 +991,55 @@ const handleSelectTextPreset = (preset) => {
           >
             vídeo
           </Button>
+
+          {/* BOTÕES NOVOS */}
+          <Button
+            onClick={() => setActivePanel((prev) => (prev === "effects" ? null : "effects"))}
+            variant="secondary"
+            className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
+              activePanel === "effects"
+                ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
+                : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
+            }`}
+          >
+            efeitos
+          </Button>
+          <Button
+            onClick={() => setActivePanel((prev) => (prev === "speed" ? null : "speed"))}
+            variant="secondary"
+            className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
+              activePanel === "speed"
+                ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
+                : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
+            }`}
+          >
+            velocidade
+          </Button>
+          <Button
+            onClick={handleCreateCaption}
+            variant="secondary"
+            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8 cursor-pointer"
+          >
+            legenda
+          </Button>
         </div>
       </div>
 
-      {/* 2. PAINEL DE ESTILOS DE TEXTO COM SCROLLBAR (ABRE AO LADO) */}
-      {showTextStyles && (
+      {/* 2. PAINEL DE TEXTOS */}
+      {activePanel === "text" && (
         <div className="w-56 p-3 flex flex-col h-full border-l border-border/50 bg-[#161618] shrink-0">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
             <span className="text-xs font-medium text-zinc-300">Estilos de texto</span>
             <button
               type="button"
-              onClick={() => setShowTextStyles(false)}
+              onClick={() => setActivePanel(null)}
               className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
               title="Fechar"
             >
               ✕
             </button>
           </div>
-
-          {/* Grelha com rolagem personalizada */}
           <div className="grid grid-cols-2 gap-2 overflow-y-auto pr-1 flex-1 [scrollbar-width:thin] [scrollbar-color:#3f3f46_transparent]">
-            
             {TEXT_PRESETS.map((preset) => (
               <button
                 type="button"
@@ -903,7 +1071,424 @@ const handleSelectTextPreset = (preset) => {
         </div>
       )}
 
-      {/* 3. OS 3 CAMPOS DE RASCUNHO (PERMANECEM À DIREITA) */}
+      {/* 3. PAINEL DE EFEITOS VISUAIS COM CONTROLES ROXOS */}
+      {activePanel === "effects" && (
+        <div className="w-64 p-3 flex flex-col h-full border-l border-border/50 bg-[#141416] shrink-0 select-none">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
+            <span className="text-xs font-semibold text-zinc-200">Efeitos Visuais</span>
+            <button
+              type="button"
+              onClick={() => setActivePanel(null)}
+              className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
+              title="Fechar"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1 [scrollbar-width:thin] [scrollbar-color:#3f3f46_transparent]">
+            {/* 1. Tela Verde */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const { activeIds, trackItemsMap } = useStore.getState();
+                  const id = activeIds[0];
+                  if (!id) return;
+                  const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                  updateActiveItemProperty({
+                    details: {
+                      effects: {
+                        ...currentEffects,
+                        greenScreen: {
+                          enabled: !currentEffects.greenScreen?.enabled,
+                          limit: currentEffects.greenScreen?.limit || 50,
+                          color: currentEffects.greenScreen?.color || "Verde",
+                        },
+                      },
+                    },
+                  });
+                }}
+                className="w-full flex items-center justify-between py-1 px-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+              >
+                <span>Tela verde</span>
+                <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Ativar</span>
+              </button>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Limite da tela</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue="50"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          greenScreen: {
+                            ...currentEffects.greenScreen,
+                            enabled: true,
+                            limit: Number(e.target.value),
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full accent-violet-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Cor da tela</span>
+                <select
+                  defaultValue="Verde"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          greenScreen: {
+                            ...currentEffects.greenScreen,
+                            enabled: true,
+                            color: e.target.value,
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-md py-1 px-2 text-xs text-zinc-200 outline-none focus:border-violet-500"
+                >
+                  <option value="Verde">Verde</option>
+                  <option value="Azul">Azul</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 2. Remoção de preto/branco */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const { activeIds, trackItemsMap } = useStore.getState();
+                  const id = activeIds[0];
+                  if (!id) return;
+                  const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                  updateActiveItemProperty({
+                    details: {
+                      effects: {
+                        ...currentEffects,
+                        removeColor: {
+                          enabled: !currentEffects.removeColor?.enabled,
+                          limit: currentEffects.removeColor?.limit || 50,
+                          color: currentEffects.removeColor?.color || "Preto",
+                        },
+                      },
+                    },
+                  });
+                }}
+                className="w-full flex items-center justify-between py-1 px-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+              >
+                <span>Remoção de preto/branco</span>
+                <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Ativar</span>
+              </button>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Limite da cor</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue="50"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          removeColor: {
+                            ...currentEffects.removeColor,
+                            enabled: true,
+                            limit: Number(e.target.value),
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full accent-violet-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Cor de remoção</span>
+                <select
+                  defaultValue="Preto"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          removeColor: {
+                            ...currentEffects.removeColor,
+                            enabled: true,
+                            color: e.target.value,
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-md py-1 px-2 text-xs text-zinc-200 outline-none focus:border-violet-500"
+                >
+                  <option value="Preto">Preto</option>
+                  <option value="Branco">Branco</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 3. VHS */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const { activeIds, trackItemsMap } = useStore.getState();
+                  const id = activeIds[0];
+                  if (!id) return;
+                  const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                  updateActiveItemProperty({
+                    details: {
+                      effects: {
+                        ...currentEffects,
+                        vhs: {
+                          enabled: !currentEffects.vhs?.enabled,
+                          grain: currentEffects.vhs?.grain || 60,
+                          intensity: currentEffects.vhs?.intensity || 40,
+                        },
+                      },
+                    },
+                  });
+                }}
+                className="w-full flex items-center justify-between py-1 px-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+              >
+                <span>VHS</span>
+                <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Ativar</span>
+              </button>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Grão</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue="60"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          vhs: {
+                            ...currentEffects.vhs,
+                            enabled: true,
+                            grain: Number(e.target.value),
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full accent-violet-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Intensidade</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue="40"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          vhs: {
+                            ...currentEffects.vhs,
+                            enabled: true,
+                            intensity: Number(e.target.value),
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full accent-violet-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+                />
+              </div>
+            </div>
+
+            {/* 4. Difusão */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const { activeIds, trackItemsMap } = useStore.getState();
+                  const id = activeIds[0];
+                  if (!id) return;
+                  const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                  updateActiveItemProperty({
+                    details: {
+                      effects: {
+                        ...currentEffects,
+                        diffusion: {
+                          enabled: !currentEffects.diffusion?.enabled,
+                          force: currentEffects.diffusion?.force || 50,
+                        },
+                      },
+                    },
+                  });
+                }}
+                className="w-full flex items-center justify-between py-1 px-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+              >
+                <span>Difusão</span>
+                <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Ativar</span>
+              </button>
+
+              <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                <span>Força</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue="50"
+                  onChange={(e) => {
+                    const { activeIds, trackItemsMap } = useStore.getState();
+                    const id = activeIds[0];
+                    if (!id) return;
+                    const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                    updateActiveItemProperty({
+                      details: {
+                        effects: {
+                          ...currentEffects,
+                          diffusion: {
+                            ...currentEffects.diffusion,
+                            enabled: true,
+                            force: Number(e.target.value),
+                          },
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full accent-violet-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg"
+                />
+              </div>
+            </div>
+
+            {/* 5. Preenchimento com desfoque */}
+            <button
+              type="button"
+              onClick={() => {
+                const { activeIds, trackItemsMap } = useStore.getState();
+                const id = activeIds[0];
+                if (!id) return;
+                const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                updateActiveItemProperty({
+                  details: {
+                    effects: {
+                      ...currentEffects,
+                      blurFill: {
+                        enabled: !currentEffects.blurFill?.enabled,
+                      },
+                    },
+                  },
+                });
+              }}
+              className="w-full flex items-center justify-between py-2 px-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+            >
+              <span>Preenchimento com desfoque</span>
+              <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Alternar</span>
+            </button>
+
+            {/* 6. Vidro */}
+            <button
+              type="button"
+              onClick={() => {
+                const { activeIds, trackItemsMap } = useStore.getState();
+                const id = activeIds[0];
+                if (!id) return;
+                const currentEffects = trackItemsMap[id]?.details?.effects || {};
+                updateActiveItemProperty({
+                  details: {
+                    effects: {
+                      ...currentEffects,
+                      glass: {
+                        enabled: !currentEffects.glass?.enabled,
+                      },
+                    },
+                  },
+                });
+              }}
+              className="w-full flex items-center justify-between py-2 px-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-md"
+            >
+              <span>Vidro</span>
+              <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Alternar</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. PAINEL DE VELOCIDADE */}
+      {activePanel === "speed" && (
+        <div className="w-56 p-3 flex flex-col h-full border-l border-border/50 bg-[#161618] shrink-0">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
+            <span className="text-xs font-medium text-zinc-300">Velocidade da Mídia</span>
+            <button
+              type="button"
+              onClick={() => setActivePanel(null)}
+              className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
+              title="Fechar"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 py-1">
+            {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((spd) => (
+              <button
+                type="button"
+                key={spd}
+                onClick={() => handleApplySpeed(spd)}
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-900/70 hover:bg-zinc-800 text-xs text-zinc-200 transition-colors cursor-pointer active:scale-95"
+              >
+                <span>{spd === 1 ? "Normal" : `${spd}x`}</span>
+                <span className="text-[10px] text-zinc-500">{spd}x</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. OS 3 CAMPOS DE RASCUNHO */}
       <div className="flex flex-col justify-between w-60 p-3 border-l border-border/50 bg-[#121214] shrink-0">
         {slots.map((slot) => (
           <div
@@ -938,6 +1523,14 @@ const handleSelectTextPreset = (preset) => {
                 {slot.type === "audio" && (
                   <span className="text-xs text-zinc-300 font-medium">🎵 Áudio</span>
                 )}
+                {slot.type === "transition" && (
+                  <span className="text-xs text-zinc-300 font-medium">✨ {slot.textContent}</span>
+                )}
+                {slot.type === "caption" && (
+                  <div className="p-2 text-center text-xs font-semibold text-yellow-300 line-clamp-2">
+                    💬 "{slot.textContent}"
+                  </div>
+                )}
                 {slot.type === "text" && (
                   <div
                     style={{
@@ -967,5 +1560,6 @@ const handleSelectTextPreset = (preset) => {
     </div>
   );
 }
+
 
 export default { Navbar, Menu };
