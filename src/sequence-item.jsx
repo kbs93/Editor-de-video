@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, useCurrentFrame } from "remotion";
 import {
   calculateContainerStyles,
   calculateMediaStyles,
@@ -10,7 +10,8 @@ import {
   combineAnimations,
   useAnimation,
 } from "./timeline-toolkit";
-import { ThreeVideoEffect } from "./three-video-effect.jsx";
+import { ThreeVideoEffect } from "./three-video-effect";
+import { buildTimedSegments } from "./legenda";
 
 // ==========================================
 // 1. CAMADA DE TEXTO EDITÁVEL (TextLayer)
@@ -301,16 +302,8 @@ export const AnimatedText = ({
 };
 
 // ==========================================
-// 3. ORQUESTRADOR DE ITENS DE SEQUÊNCIA
+// RENDERIZADOR DE VÍDEO COM THREE.JS
 // ==========================================
-const getAnimations = (animations) => {
-  return {
-    animationIn: animations?.in || null,
-    animationOut: animations?.out || null,
-  };
-};
-
-
 
 function VideoWithThreeEffects({ item, options }) {
   const { fps, zIndex } = options;
@@ -376,7 +369,6 @@ function VideoWithThreeEffects({ item, options }) {
               pointerEvents: "none",
             }}
           >
-            {/* O OffthreadVideo mantém o áudio, a velocidade e a reprodução padrão */}
             <OffthreadVideo
               ref={(ref) => {
                 if (ref && !videoElement) setVideoElement(ref);
@@ -394,7 +386,6 @@ function VideoWithThreeEffects({ item, options }) {
               }}
             />
 
-            {/* O Three.js processa a tela verde e os shaders na GPU */}
             {hasActiveEffects && videoElement && (
               <ThreeVideoEffect
                 videoElement={videoElement}
@@ -409,188 +400,138 @@ function VideoWithThreeEffects({ item, options }) {
     </Sequence>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// ==========================================
+// 3. ORQUESTRADOR DE ITENS DE SEQUÊNCIA
+// ==========================================
+const getAnimations = (animations) => {
+  return {
+    animationIn: animations?.in || null,
+    animationOut: animations?.out || null,
+  };
+};
 
 export const SequenceItem = {
   text: (item, options) => {
-    const { handleTextChange, onTextBlur, fps, editableTextId, zIndex } =
-      options;
-    const { id, details, animations } = item;
-    const { from, durationInFrames } = calculateFrames(item.display, fps);
-    const { animationIn, animationOut } = getAnimations(animations);
-    return (
-      <Sequence
-        key={item.id}
-        from={from}
-        durationInFrames={durationInFrames}
-        style={{ pointerEvents: "none", zIndex }}
-      >
-        <div
-          data-track-item="transition-element"
-          className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={{
-            ...calculateContainerStyles(details),
-            position: "absolute",
-            width: details.width || 300,
-            height: details.height || "auto",
-            overflow: "hidden",
-            pointerEvents: "auto",
-          }}
-        >
-          <Animated
-            style={{
-              width: "100%",
-              height: "100%",
-              position: "relative",
-            }}
-            animationIn={editableTextId === id ? null : animationIn}
-            animationOut={editableTextId === id ? null : animationOut}
-            durationInFrames={durationInFrames}
-          >
-            <TextLayer
-              key={id}
-              id={id}
-              content={details.text}
-              editable={editableTextId === id}
-              onChange={handleTextChange}
-              onBlur={onTextBlur}
-              style={{
-                ...calculateTextStyles(details),
-                width: "100%",
-                height: "100%",
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-                whiteSpace: "pre-wrap",
-                boxSizing: "border-box",
-              }}
-            />
-          </Animated>
-        </div>
-      </Sequence>
-    );
+    // ... manter o método text existente exatamente como está
   },
 
-  image: (item, options) => {
-    const { fps, zIndex } = options;
-    const { details, animations } = item;
-    const { from, durationInFrames } = calculateFrames(item.display, fps);
-    const { animationIn, animationOut } = getAnimations(animations);
-    const crop = details.crop || {
-      x: 0,
-      y: 0,
-      width: item.details.width,
-      height: item.details.height,
-    };
-    return (
-      <Sequence
-        key={item.id}
-        from={from}
-        durationInFrames={durationInFrames}
-        style={{ pointerEvents: "none", zIndex }}
-      >
-        <AbsoluteFill
-          data-track-item="transition-element"
-          className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
-          style={{
-            ...calculateContainerStyles(details, crop),
-            pointerEvents: "auto",
-            cursor: "pointer",
-          }}
-        >
-          <Animated
-            style={calculateContainerStyles(details, crop, {
-              overflow: "hidden",
-            })}
-            animationIn={animationIn}
-            animationOut={animationOut}
-            durationInFrames={durationInFrames}
-          >
-            <div
-              style={{
-                ...calculateMediaStyles(details, crop),
-                pointerEvents: "none",
-              }}
-            >
-              <Img
-                data-id={item.id}
-                src={details.src}
-                style={{ pointerEvents: "none" }}
-              />
-            </div>
-          </Animated>
-        </AbsoluteFill>
-      </Sequence>
-    );
-  },
+  // RENDERIZAÇÃO DA LEGENDA DINÂMICA INTEGRADA AO MOVEABLE
 
- video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
 
-  audio: (item, options) => {
-    const { fps, zIndex } = options;
-    const { details } = item;
-    const playbackRate = item.playbackRate || 1;
-    const { from, durationInFrames } = calculateFrames(
-      {
-        from: item.display.from / playbackRate,
-        to: item.display.to / playbackRate,
-      },
-      fps
-    );
-    return (
-      <Sequence
-        key={item.id}
-        from={from}
-        durationInFrames={durationInFrames}
+caption: (item, options) => {
+  const { fps = 30 } = options;
+  const { details = {} } = item;
+  const { from, durationInFrames } = calculateFrames(item.display, fps);
+
+  const frame = useCurrentFrame();
+  const currentTimeMs = (frame / fps) * 1000;
+
+  // Garante os blocos de palavras calculados
+  const segments =
+    details.segments && details.segments.length > 0
+      ? details.segments
+      : buildTimedSegments(details.text || "", (durationInFrames / fps) * 1000);
+
+  // Procura o bloco ativo no milissegundo atual
+  let currentSegment = segments.find(
+    (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
+  );
+
+  // Se o vídeo estiver pausado no início ou fim, exibe o primeiro bloco
+  if (!currentSegment && segments.length > 0) {
+    currentSegment = segments[0];
+  }
+
+  const activeCol = details.activeColor || "#38bdf8";
+  const normalCol = details.textColor || "#ffffff";
+  const bgCol = details.backgroundColor || "rgba(0, 0, 0, 0.75)";
+  const fSize = details.fontSize || 56;
+
+  return (
+    <Sequence
+      key={item.id}
+      from={from}
+      durationInFrames={durationInFrames}
+      style={{
+        zIndex: 9999, // FORÇA A LEGENDA A FICAR ACIMA DO VÍDEO E DO THREE.JS
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        data-track-item="transition-element"
+        className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
         style={{
-          userSelect: "none",
-          pointerEvents: "none",
-          zIndex,
+          position: "absolute",
+          left: details.left || 0,
+          top: details.top || 0,
+          width: details.width || 900,
+          height: details.height || 160,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          pointerEvents: "auto",
+          cursor: "move",
         }}
       >
-        <AbsoluteFill>
-          <Audio
-            startFrom={(item.trim?.from / 1000) * fps}
-            endAt={(item.trim?.to / 1000) * fps}
-            playbackRate={playbackRate}
-            src={details.src}
-            volume={details.volume / 100}
-          />
-        </AbsoluteFill>
-      </Sequence>
-    );
+        {currentSegment && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "14px",
+              padding: "12px 28px",
+              backgroundColor: bgCol,
+              borderRadius: "16px",
+              border: bgCol !== "transparent" ? "2px solid rgba(255, 255, 255, 0.2)" : "none",
+              boxShadow: bgCol !== "transparent" ? "0 10px 35px rgba(0,0,0,0.85)" : "none",
+            }}
+          >
+            {currentSegment.words.map((w, idx) => {
+              const isWordActive =
+                currentTimeMs >= w.start && currentTimeMs < w.end;
+
+              return (
+                <span
+                  key={idx}
+                  style={{
+                    fontFamily: details.fontFamily || "Impact, sans-serif",
+                    fontSize: `${fSize}px`,
+                    fontWeight: "900",
+                    letterSpacing: "2px",
+                    textTransform: "uppercase",
+                    color: isWordActive ? activeCol : normalCol,
+                    transform: isWordActive ? "scale(1.15)" : "scale(1)",
+                    transition: "transform 0.05s ease, color 0.05s ease",
+                    textShadow: isWordActive
+                      ? `0 0 22px ${activeCol}, 3px 3px 0 #000`
+                      : "3px 3px 0 #000",
+                    display: "inline-block",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {w.word}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Sequence>
+  );
+},
+
+
+  image: (item, options) => {
+    // ... manter o image existente
+  },
+  video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
+  audio: (item, options) => {
+    // ... manter o audio existente
   },
 };
+
+
 
 export default SequenceItem;

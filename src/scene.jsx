@@ -248,8 +248,7 @@ function SceneInteractions({ stateManager, viewerRef, zoom }) {
     setBackupCrop(null);
   };
 
-
-useEffect(() => {
+  useEffect(() => {
     const handleStart = () => {
       if (canCrop && !isCropping) handleStartCrop();
     };
@@ -274,10 +273,6 @@ useEffect(() => {
       window.removeEventListener("CANCEL_CROP_MODE", handleCancel);
     };
   }, [canCrop, isCropping, selectedItem, cropValues]);
-
-
-
-
 
   useEffect(() => {
     if (isCropping) {
@@ -410,34 +405,6 @@ useEffect(() => {
 
   return (
     <>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       {isCropping && selectedItem && cropValues && (
         <CropOverlay
           item={selectedItem}
@@ -662,8 +629,34 @@ function DroppableArea({
   const [isPointerInside, setIsPointerInside] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  const handleDrop = useCallback((draggedData) => {
-    const payload = { ...draggedData, id: generateId() };
+
+
+
+
+const handleDrop = useCallback((draggedData) => {
+    const newId = draggedData.id || generateId();
+    const payload = { ...draggedData, id: newId };
+
+    // Sincroniza imediatamente o estado do editor no Zustand
+    const state = useStore.getState();
+    const currentTrackIds = state.trackItemIds || [];
+    const currentItemsMap = state.trackItemsMap || {};
+    const currentDetailsMap = state.trackItemDetailsMap || {};
+
+    useStore.setState({
+      trackItemIds: [...currentTrackIds, newId],
+      trackItemsMap: {
+        ...currentItemsMap,
+        [newId]: payload,
+      },
+      trackItemDetailsMap: {
+        ...currentDetailsMap,
+        [newId]: payload.details || {},
+      },
+      activeIds: [newId],
+    });
+
+    // Despacha os eventos para a timeline
     switch (draggedData.type) {
       case AcceptedDropTypes.IMAGE:
         dispatch(ADD_IMAGE, { payload });
@@ -687,7 +680,10 @@ function DroppableArea({
 
 
 
-const onDragEnter = useCallback(
+
+
+
+  const onDragEnter = useCallback(
     (e) => {
       e.preventDefault();
       setIsDraggingOver(true);
@@ -732,18 +728,6 @@ const onDragEnter = useCallback(
     },
     [onDragStateChange, handleDrop]
   );
-
-
-
-
-
-
-
-
-
-
-
-
 
   const onDragLeave = useCallback(
     (e) => {
@@ -874,11 +858,10 @@ function SceneBoard({ size, children }) {
 // ==========================================
 // 6. REPRODUTOR REMOTION EMBUTIDO (Player)
 // ==========================================
-
-
 function Player() {
   const playerRef = useRef(null);
-  const { setPlayerRef, duration, fps, size } = useStore();
+  // 1. Lê a velocidade atual do store
+  const { setPlayerRef, duration, fps, size, playbackRate } = useStore();
 
   useEffect(() => {
     setPlayerRef(playerRef);
@@ -893,6 +876,7 @@ function Player() {
       compositionHeight={size.height}
       className="h-full w-full"
       fps={30}
+      playbackRate={playbackRate || 1} // 2. Passa a velocidade para a engine do Remotion
       overflowVisible
     />
   );
@@ -925,10 +909,6 @@ export default function Scene({ stateManager }) {
       ref={containerRef}
     >
       {trackItemIds.length === 0 && <SceneEmpty />}
-
-
-
-      
       <Viewer
         ref={viewerRef}
         className="player-container bg-sidebar"

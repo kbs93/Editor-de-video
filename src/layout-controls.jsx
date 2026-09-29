@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import useStore, { SECONDARY_FONT, SECONDARY_FONT_URL, TRANSITIONS } from "./editor-store.js";
+import { openCaptionModal } from "./legenda.js";
+import { openSpeedModal } from "./velocidadeAudio.js";
 
 const ASPECT_RATIOS = [
   {
@@ -493,19 +495,7 @@ const TEXT_PRESETS = [
       borderColor: "transparent",
     },
   },
-  {
-    id: "legenda",
-    label: "Realce de legenda",
-    previewText: "Realce",
-    details: {
-      color: "#000000",
-      fontSize: 70,
-      fontWeight: "800",
-      backgroundColor: "#facc15",
-      borderWidth: 0,
-      borderColor: "transparent",
-    },
-  },
+
   {
     id: "oferta",
     label: "Oferta",
@@ -1024,13 +1014,17 @@ const updateActiveItemProperty = (propertyPatch) => {
           >
             velocidade
           </Button>
-          <Button
-            onClick={handleCreateCaption}
-            variant="secondary"
-            className="w-full justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs py-1.5 h-8 cursor-pointer"
-          >
-            legenda
-          </Button>
+         <Button
+  onClick={() => setActivePanel((prev) => (prev === "caption" ? null : "caption"))}
+  variant="secondary"
+  className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
+    activePanel === "caption"
+      ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
+      : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
+  }`}
+>
+  legenda
+</Button>
         </div>
       </div>
 
@@ -1079,6 +1073,17 @@ const updateActiveItemProperty = (propertyPatch) => {
           </div>
         </div>
       )}
+
+      {activePanel === "caption" && (
+  <div
+    ref={(el) => {
+      if (el) {
+        openCaptionModal(el, () => setActivePanel(null));
+      }
+    }}
+    className="shrink-0 h-full"
+  />
+)}
 
       {/* 3. PAINEL DE EFEITOS VISUAIS COM CONTROLES ROXOS */}
       {activePanel === "effects" && (
@@ -1468,34 +1473,16 @@ const updateActiveItemProperty = (propertyPatch) => {
       )}
 
       {/* 4. PAINEL DE VELOCIDADE */}
-      {activePanel === "speed" && (
-        <div className="w-56 p-3 flex flex-col h-full border-l border-border/50 bg-[#161618] shrink-0">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
-            <span className="text-xs font-medium text-zinc-300">Velocidade da Mídia</span>
-            <button
-              type="button"
-              onClick={() => setActivePanel(null)}
-              className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
-              title="Fechar"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex flex-col gap-2 py-1">
-            {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((spd) => (
-              <button
-                type="button"
-                key={spd}
-                onClick={() => handleApplySpeed(spd)}
-                className="flex items-center justify-between px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-900/70 hover:bg-zinc-800 text-xs text-zinc-200 transition-colors cursor-pointer active:scale-95"
-              >
-                <span>{spd === 1 ? "Normal" : `${spd}x`}</span>
-                <span className="text-[10px] text-zinc-500">{spd}x</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+{activePanel === "speed" && (
+  <div
+    ref={(el) => {
+      if (el) {
+        openSpeedModal(el, () => setActivePanel(null));
+      }
+    }}
+    className="shrink-0 h-full pointer-events-auto"
+  />
+)}
 
       {/* 5. OS 3 CAMPOS DE RASCUNHO */}
       <div className="flex flex-col justify-between w-60 p-3 border-l border-border/50 bg-[#121214] shrink-0">
@@ -1535,11 +1522,9 @@ const updateActiveItemProperty = (propertyPatch) => {
                 {slot.type === "transition" && (
                   <span className="text-xs text-zinc-300 font-medium">✨ {slot.textContent}</span>
                 )}
-                {slot.type === "caption" && (
-                  <div className="p-2 text-center text-xs font-semibold text-yellow-300 line-clamp-2">
-                    💬 "{slot.textContent}"
-                  </div>
-                )}
+              
+
+
                 {slot.type === "text" && (
                   <div
                     style={{
