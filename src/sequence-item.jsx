@@ -417,29 +417,32 @@ export const SequenceItem = {
 
   // RENDERIZAÇÃO DA LEGENDA DINÂMICA INTEGRADA AO MOVEABLE
 
-
 caption: (item, options) => {
   const { fps = 30 } = options;
   const { details = {} } = item;
   const { from, durationInFrames } = calculateFrames(item.display, fps);
 
+  const playbackRate = item.playbackRate || details.playbackRate || 1;
   const frame = useCurrentFrame();
-  const currentTimeMs = (frame / fps) * 1000;
+  
+  // Multiplica o tempo do frame pela velocidade para sincronizar com o vídeo
+  const currentTimeMs = (frame / fps) * 1000 * playbackRate;
+  const totalDurationMs = (durationInFrames / fps) * 1000 * playbackRate;
 
-  // Garante os blocos de palavras calculados
   const segments =
     details.segments && details.segments.length > 0
       ? details.segments
-      : buildTimedSegments(details.text || "", (durationInFrames / fps) * 1000);
+      : buildTimedSegments(details.text || "", 0, totalDurationMs);
 
-  // Procura o bloco ativo no milissegundo atual
   let currentSegment = segments.find(
     (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
   );
 
+
   // Se o vídeo estiver pausado no início ou fim, exibe o primeiro bloco
-  if (!currentSegment && segments.length > 0) {
-    currentSegment = segments[0];
+// Se o vídeo estiver em silêncio ou fora do tempo da fala, não exibe nada
+  if (!currentSegment) {
+    return null;
   }
 
   const activeCol = details.activeColor || "#38bdf8";
@@ -527,8 +530,38 @@ caption: (item, options) => {
     // ... manter o image existente
   },
   video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
-  audio: (item, options) => {
-    // ... manter o audio existente
+audio: (item, options) => {
+    const { fps = 30 } = options;
+    const { details = {}, trim = {}, display = {} } = item;
+    const playbackRate = item.playbackRate || details.playbackRate || 1;
+
+    const { from, durationInFrames } = calculateFrames(
+      {
+        from: (display.from || 0) / playbackRate,
+        to: (display.to || 5000) / playbackRate,
+      },
+      fps
+    );
+
+    const startFromFrames = ((trim.from || 0) / 1000) * fps;
+    const endAtFrames = trim.to ? (trim.to / 1000) * fps : undefined;
+    const volume = (details.volume ?? 100) / 100;
+
+    return (
+      <Sequence
+        key={item.id}
+        from={from}
+        durationInFrames={durationInFrames}
+      >
+        <Audio
+          src={details.src}
+          volume={volume}
+          playbackRate={playbackRate}
+          startFrom={startFromFrames}
+          endAt={endAtFrames}
+        />
+      </Sequence>
+    );
   },
 };
 

@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import useStore, { SECONDARY_FONT } from "./editor-store.js";
 
 // ==========================================
-// 1. DIVISÃO EM BLOCOS DE 3 PALAVRAS COM BASE NO INTERVALO REAL
+// 1. DIVISÃO EM BLOCOS (FALLBACK E WHISPER REAL)
 // ==========================================
 export function buildTimedSegments(rawText, fromMs, toMs) {
   const words = String(rawText || "")
@@ -25,8 +25,8 @@ export function buildTimedSegments(rawText, fromMs, toMs) {
   const timePerSegment = duration / segments.length;
 
   return segments.map((chunk, segIndex) => {
-    const segStart = Math.round(fromMs + segIndex * timePerSegment);
-    const segEnd = Math.round(fromMs + (segIndex + 1) * timePerSegment);
+    const segStart = Math.round(segIndex * timePerSegment);
+    const segEnd = Math.round((segIndex + 1) * timePerSegment);
     const wordDuration = (segEnd - segStart) / chunk.length;
 
     const timedWords = chunk.map((w, wIndex) => ({
@@ -43,11 +43,127 @@ export function buildTimedSegments(rawText, fromMs, toMs) {
   });
 }
 
+export function groupWhisperWordsIntoSegments(whisperWords, maxWordsPerSegment = 3) {
+  if (!whisperWords || whisperWords.length === 0) return [];
+
+  const segments = [];
+  for (let i = 0; i < whisperWords.length; i += maxWordsPerSegment) {
+    const chunk = whisperWords.slice(i, i + maxWordsPerSegment);
+    const segStart = chunk[0].start;
+    const segEnd = chunk[chunk.length - 1].end;
+
+    segments.push({
+      start: segStart,
+      end: segEnd,
+      words: chunk,
+    });
+  }
+  return segments;
+}
+export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, totalToMs) {
+  const userWords = String(rawText || "").trim().split(/\s+/).filter(Boolean);
+  if (userWords.length === 0) return [];
+  if (!baseSegments || baseSegments.length === 0) {
+    return buildTimedSegments(rawText, totalFromMs, totalToMs);
+  }
+
+  let userWordIndex = 0;
+  const updatedSegments = [];
+
+  for (const seg of baseSegments) {
+    if (userWordIndex >= userWords.length) break;
+    const chunkWords = [];
+    for (const w of seg.words) {
+      if (userWordIndex < userWords.length) {
+        chunkWords.push({
+          word: userWords[userWordIndex],
+          start: w.start,
+          end: w.end,
+        });
+        userWordIndex++;
+      }
+    }
+    if (chunkWords.length > 0) {
+      updatedSegments.push({
+        start: chunkWords[0].start,
+        end: chunkWords[chunkWords.length - 1].end,
+        words: chunkWords,
+      });
+    }
+  }
+
+  if (userWordIndex < userWords.length) {
+    const remainingWords = userWords.slice(userWordIndex);
+    const lastSegEnd = updatedSegments.length > 0 ? updatedSegments[updatedSegments.length - 1].end : totalFromMs;
+    const remainingDuration = Math.max(totalToMs - lastSegEnd, remainingWords.length * 300);
+    const additionalSegments = buildTimedSegments(remainingWords.join(" "), lastSegEnd, lastSegEnd + remainingDuration);
+    updatedSegments.push(...additionalSegments);
+  }
+
+  return updatedSegments;
+}
+
+
+
+
+
 // ==========================================
-// 2. CONFIGURAÇÕES E ESTADO DO OVERLAY
+// 2. EXTRAÇÃO E CONVERSÃO DE ÁUDIO NO BROWSER
+// ==========================================
+function audioBufferToWavBlob(buffer) {
+  const numOfChan = buffer.numberOfChannels;
+  const length = buffer.length * numOfChan * 2 + 44;
+  const out = new DataView(new ArrayBuffer(length));
+  const channels = [];
+  let sampleRate = buffer.sampleRate;
+  let offset = 0;
+  let pos = 0;
+
+  function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+  function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+  setUint32(0x46464952); // "RIFF"
+  setUint32(length - 8);
+  setUint32(0x45564157); // "WAVE"
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16);
+  setUint16(1);          // PCM
+  setUint16(numOfChan);
+  setUint32(sampleRate);
+  setUint32(sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16);
+  setUint32(0x61746164); // "data"
+  setUint32(length - pos - 4);
+
+  for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+
+  while (offset < buffer.length) {
+    for (let i = 0; i < numOfChan; i++) {
+      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+      out.setInt16(pos, sample, true);
+      pos += 2;
+    }
+    offset++;
+  }
+
+  return new Blob([out.buffer], { type: "audio/wav" });
+}
+async function extractAudioBlobFromUrl(mediaUrl) {
+  const response = await fetch(mediaUrl);
+  if (!response.ok) {
+    throw new Error(`Falha ao obter mídia (${response.statusText})`);
+  }
+  return await response.blob();
+}
+
+// ==========================================
+// 3. ESTADO E CONTROLOS DO OVERLAY
 // ==========================================
 let activeCaptionId = null;
 let rawCaptionText = "";
+let customWhisperSegments = null;
 let animFrameId = null;
 let captionOverlayElement = null;
 let lastInputText = "";
@@ -94,7 +210,6 @@ function ensureOverlayElement() {
     el.style.boxSizing = "border-box";
     el.title = "Arraste pelo centro ou use os pontos nos cantos para redimensionar";
 
-    // Alças de redimensionamento nos 4 cantos
     const handles = ["nw", "ne", "sw", "se"];
     handles.forEach((pos) => {
       const handle = document.createElement("div");
@@ -144,7 +259,6 @@ function ensureOverlayElement() {
       el.appendChild(handle);
     });
 
-    // Deslocar a legenda pelo ecrã
     let isDragging = false;
     let startX = 0, startY = 0;
     let initialLeft = 0, initialTop = 0;
@@ -197,7 +311,7 @@ function ensureOverlayElement() {
 }
 
 // ==========================================
-// 3. MOTOR DE SINCRONIZAÇÃO RIGOROSO COM A LINHA DO TEMPO
+// 4. MOTOR DE SINCRONIZAÇÃO
 // ==========================================
 function startCaptionLoop() {
   if (animFrameId) cancelAnimationFrame(animFrameId);
@@ -207,7 +321,6 @@ function startCaptionLoop() {
     const state = useStore.getState();
     const playerRef = state.playerRef?.current;
 
-    // Obtém o item da legenda a partir do estado para saber a posição exata da barra
     const captionItem = activeCaptionId ? state.trackItemsMap?.[activeCaptionId] : null;
 
     if (captionItem && captionItem.display && rawCaptionText) {
@@ -218,9 +331,11 @@ function startCaptionLoop() {
       const fromMs = captionItem.display.from;
       const toMs = captionItem.display.to;
 
-      // SÓ ENTRA SE A BARRA ESTIVER EXATAMENTE SOBRE O BLOCO DA LEGENDA
       if (currentTimeMs >= fromMs && currentTimeMs < toMs) {
-        const segments = buildTimedSegments(rawCaptionText, fromMs, toMs);
+        const segments =
+          captionItem.details?.segments ||
+          customWhisperSegments ||
+          buildTimedSegments(rawCaptionText, fromMs, toMs);
 
         let currentSegment = segments.find(
           (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
@@ -281,7 +396,6 @@ function startCaptionLoop() {
           overlay.style.display = "none";
         }
       } else {
-        // Se a barra estiver antes ou depois da legenda, limpa e esconde
         overlay.innerHTML = "";
         overlay.style.display = "none";
       }
@@ -297,62 +411,86 @@ function startCaptionLoop() {
 }
 
 // ==========================================
-// 4. PAINEL DE CONTROLO
+// 5. PAINEL LATERAL COM BOTÃO WHISPER
+// ==========================================
+// ==========================================
+// 5. PAINEL GAVETA SOBREPOSTA (DRAWER COMPLETO)
 // ==========================================
 export function openCaptionModal(container, onClose) {
   if (!container) return;
 
   container.innerHTML = `
-    <div style="width: 320px; padding: 16px; display: flex; flex-direction: column; height: 100%; border-left: 1px solid rgba(255,255,255,0.1); background-color: #161618; box-sizing: border-box;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #27272a; flex-shrink: 0;">
-        <span style="font-size: 14px; font-weight: 600; color: #f4f4f5; font-family: sans-serif;">Criar Legenda Dinâmica</span>
-        <button type="button" id="btn-caption-close" style="background: transparent; border: none; color: #a1a1aa; font-size: 16px; cursor: pointer; border-radius: 4px;" title="Fechar">✕</button>
+    <div style="width: 100%; height: 100%; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background-color: #141416; gap: 10px; overflow: hidden;">
+      
+      <!-- Topo: Título e Botão Fechar -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #27272a; flex-shrink: 0;">
+        <span style="font-size: 13px; font-weight: 700; color: #f4f4f5; font-family: sans-serif;">Criar Legenda Dinâmica</span>
+        <button type="button" id="btn-caption-close" style="background: transparent; border: none; color: #71717a; font-size: 15px; cursor: pointer; border-radius: 4px; padding: 2px 6px;" title="Fechar">✕</button>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0;">
-        <label style="font-size: 12px; color: #d4d4d8; font-weight: 500; font-family: sans-serif; flex-shrink: 0;">
+      <!-- Botão Transcrição IA -->
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+        <button 
+          type="button" 
+          id="btn-ai-transcribe" 
+          style="width: 100%; background: #1e1e22; border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 600; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;"
+        >
+          Transcrever o Vídeo (IA)
+        </button>
+        <span id="transcribe-status" style="font-size: 11px; color: #a1a1aa; text-align: center; display: none; line-height: 1.2;">Aguarde...</span>
+      </div>
+
+      <!-- Caixa de Texto Esticada Verticalmente -->
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0;">
+        <label style="font-size: 11px; color: #a1a1aa; font-weight: 500; font-family: sans-serif; flex-shrink: 0;">
           Texto falado no vídeo:
         </label>
-        <textarea id="caption-input-text" placeholder="Cole aqui o texto falado..." style="width: 100%; flex: 1; min-height: 120px; background-color: #18181b; border: 1px solid #3f3f46; border-radius: 12px; padding: 12px; font-size: 13px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.5;">${lastInputText}</textarea>
+        <textarea id="caption-input-text" placeholder="Cole aqui ou clique no botão acima para transcrever..." style="width: 100%; flex: 1; height: 100%; background-color: #18181b; border: 1.5px solid #27272a; border-radius: 8px; padding: 10px; font-size: 12px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.45; scrollbar-width: thin; scrollbar-color: #52525b transparent;">${lastInputText}</textarea>
+      </div>
 
-        <div style="background: #1e1e22; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #2d2d32; flex-shrink: 0;">
-          <span style="font-size: 11px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">Aparência da Legenda</span>
-          
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="font-size: 12px; color: #e4e4e7; font-family: sans-serif;">Destaque (Palavra ativa):</label>
-            <input type="color" id="picker-active-color" value="${captionConfig.activeColor}" style="cursor: pointer; background: transparent; border: none; width: 32px; height: 32px;" />
-          </div>
+      <!-- Bloco de Aparência da Legenda -->
+      <div style="background: #18181b; padding: 10px 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #27272a; flex-shrink: 0;">
+        <span style="font-size: 10px; font-weight: 700; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">APARÊNCIA DA LEGENDA</span>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">(Palavra Ativa):</label>
+          <input type="color" id="picker-active-color" value="${captionConfig.activeColor}" style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px;" />
+        </div>
 
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="font-size: 12px; color: #e4e4e7; font-family: sans-serif;">Texto normal:</label>
-            <input type="color" id="picker-text-color" value="${captionConfig.textColor}" style="cursor: pointer; background: transparent; border: none; width: 32px; height: 32px;" />
-          </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Texto normal:</label>
+          <input type="color" id="picker-text-color" value="${captionConfig.textColor}" style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px;" />
+        </div>
 
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="font-size: 12px; color: #e4e4e7; font-family: sans-serif;">Cor do Fundo:</label>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input type="color" id="picker-bg-color" value="${captionConfig.bgColor}" ${!captionConfig.hasBg ? "disabled" : ""} style="cursor: pointer; background: transparent; border: none; width: 32px; height: 32px; opacity: ${captionConfig.hasBg ? '1' : '0.4'};" />
-              <label style="font-size: 11px; color: #a1a1aa; display: flex; align-items: center; gap: 4px; cursor: pointer;">
-                <input type="checkbox" id="check-no-bg" ${!captionConfig.hasBg ? "checked" : ""} style="accent-color: #8b5cf6;" />
-                Sem Fundo
-              </label>
-            </div>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="font-size: 12px; color: #e4e4e7; font-family: sans-serif;">Tamanho da Fonte:</label>
-            <input type="range" id="picker-font-size" min="30" max="80" value="${captionConfig.fontSize}" style="width: 100px; accent-color: #8b5cf6;" />
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Cor do Fundo:</label>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="color" id="picker-bg-color" value="${captionConfig.bgColor}" ${!captionConfig.hasBg ? "disabled" : ""} style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px; opacity: ${captionConfig.hasBg ? '1' : '0.4'};" />
+            <label style="font-size: 10px; color: #a1a1aa; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="checkbox" id="check-no-bg" ${!captionConfig.hasBg ? "checked" : ""} style="accent-color: #8b5cf6;" />
+              Sem Fundo
+            </label>
           </div>
         </div>
 
-        <button type="button" id="btn-caption-submit" style="width: 100%; background-color: #7c3aed; color: #ffffff; font-weight: bold; font-size: 14px; padding: 12px; border-radius: 12px; cursor: pointer; border: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); flex-shrink: 0;">✨ Aplicar Legenda no Vídeo</button>
-        <span id="caption-feedback" style="font-size: 11px; color: #4ade80; text-align: center; display: none; font-weight: 500; flex-shrink: 0;">Legenda ativa! Só será visível quando a barra passar sobre o bloco.</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Tamanho da Fonte:</label>
+          <input type="range" id="picker-font-size" min="30" max="80" value="${captionConfig.fontSize}" style="width: 85px; accent-color: #8b5cf6; cursor: pointer;" />
+        </div>
+      </div>
+
+      <!-- Base: Botão Aplicar -->
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+        <button type="button" id="btn-caption-submit" style="width: 100%; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; font-weight: 700; font-size: 13px; padding: 11px; border-radius: 8px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); transition: transform 0.1s ease;">✨ Aplicar Legenda no Vídeo</button>
+        <span id="caption-feedback" style="font-size: 11px; color: #4ade80; text-align: center; display: none; font-weight: 500;">Legenda aplicada com sucesso!</span>
       </div>
     </div>
   `;
 
   const btnClose = container.querySelector("#btn-caption-close");
   const btnSubmit = container.querySelector("#btn-caption-submit");
+  const btnAi = container.querySelector("#btn-ai-transcribe");
+  const transcribeStatus = container.querySelector("#transcribe-status");
   const textarea = container.querySelector("#caption-input-text");
   const feedback = container.querySelector("#caption-feedback");
 
@@ -389,8 +527,89 @@ export function openCaptionModal(container, onClose) {
     if (typeof onClose === "function") onClose();
   });
 
+  // AÇÃO DO BOTÃO WHISPER: INJETA O TEXTO NO CAMPO
+  btnAi?.addEventListener("click", async () => {
+    const state = useStore.getState();
+    const activeVideoId = state.trackItemIds?.find(
+      (id) => state.trackItemsMap[id]?.type === "video" || state.trackItemsMap[id]?.type === "audio"
+    );
+    const mediaItem = activeVideoId ? state.trackItemsMap[activeVideoId] : null;
+
+    if (!mediaItem || !mediaItem.details?.src) {
+      alert("Por favor, adicione um vídeo ou áudio à timeline antes de transcrever!");
+      return;
+    }
+
+    try {
+      btnAi.disabled = true;
+      btnAi.style.opacity = "0.7";
+      btnAi.style.cursor = "wait";
+      btnAi.style.backgroundColor = "#1e293b";
+      btnAi.innerText = "⏳ Extraindo áudio...";
+
+      if (transcribeStatus) {
+        transcribeStatus.style.display = "block";
+        transcribeStatus.style.color = "#38bdf8";
+        transcribeStatus.innerText = "Processando com o Whisper... aguarde.";
+      }
+
+      const mediaBlob = await extractAudioBlobFromUrl(mediaItem.details.src);
+
+      btnAi.innerText = "⏳ Transcrevendo...";
+
+      const formData = new FormData();
+      formData.append("audio", mediaBlob, "media.mp4");
+
+      const response = await fetch("http://localhost:3001/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro do servidor Node: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const activeTextarea = document.querySelector("#caption-input-text") || container.querySelector("#caption-input-text");
+      if (activeTextarea) {
+        activeTextarea.value = data.text;
+        activeTextarea.focus();
+        activeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
+        activeTextarea.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
+      lastInputText = data.text;
+      rawCaptionText = data.text;
+      customWhisperSegments = groupWhisperWordsIntoSegments(data.words, 3);
+
+      btnAi.innerText = "✅ Transcrição Concluída!";
+      if (transcribeStatus) {
+        transcribeStatus.style.color = "#4ade80";
+        transcribeStatus.innerText = "Texto inserido abaixo! Faça suas correções e clique em Aplicar.";
+      }
+    } catch (err) {
+      console.error("Falha detalhada ao transcrever:", err);
+      btnAi.innerText = "❌ Erro na Transcrição";
+      if (transcribeStatus) {
+        transcribeStatus.style.color = "#ef4444";
+        transcribeStatus.innerText = "Erro ao transcrever. Verifique se o servidor está ativo na porta 3001.";
+      }
+    } finally {
+      setTimeout(() => {
+        btnAi.disabled = false;
+        btnAi.style.opacity = "1";
+        btnAi.style.cursor = "pointer";
+        btnAi.style.backgroundColor = "#1e1e22";
+        btnAi.innerText = "Transcrever o Vídeo (IA)";
+      }, 3500);
+    }
+  });
+
+  // AÇÃO DO BOTÃO APLICAR: ENVIA O TEXTO CORRIGIDO PELO UTILIZADOR
   btnSubmit?.addEventListener("click", () => {
-    const rawText = textarea.value.trim();
+    const targetTextarea = container.querySelector("#caption-input-text") || textarea;
+    const rawText = (targetTextarea ? targetTextarea.value : "").trim();
     if (!rawText) return;
 
     lastInputText = rawText;
@@ -400,7 +619,7 @@ export function openCaptionModal(container, onClose) {
     const { duration, trackItemsMap, trackItemIds } = state;
 
     const firstVideoId = trackItemIds?.find(
-      (id) => trackItemsMap[id]?.type === "video"
+      (id) => trackItemsMap[id]?.type === "video" || trackItemsMap[id]?.type === "audio"
     );
     const videoItem = firstVideoId ? trackItemsMap[firstVideoId] : null;
 
@@ -413,22 +632,38 @@ export function openCaptionModal(container, onClose) {
     const captionId = nanoid();
     activeCaptionId = captionId;
 
-    // Adiciona o bloco na linha do tempo
+    const videoStartMs = videoItem?.display?.from ?? 0;
+    const videoEndMs = videoItem?.display?.to ?? totalDurationMs;
+    const currentRate = videoItem?.playbackRate || videoItem?.details?.playbackRate || 1;
+
+    const finalSegments = reconcileSegmentsWithText(
+      rawText,
+      customWhisperSegments,
+      videoStartMs,
+      videoEndMs
+    );
+
     const payload = {
       id: captionId,
       type: "caption",
       name: "Legenda Dinâmica",
+      playbackRate: currentRate,
       display: {
-        from: 0,
-        to: totalDurationMs,
+        from: videoStartMs,
+        to: videoEndMs,
       },
       details: {
         text: rawText,
+        playbackRate: currentRate,
+        segments: finalSegments,
+        activeColor: captionConfig.activeColor,
+        textColor: captionConfig.textColor,
+        backgroundColor: captionConfig.hasBg ? captionConfig.bgColor : "transparent",
+        fontSize: captionConfig.fontSize,
       },
     };
-    dispatch(ADD_TEXT, { payload });
 
-    // Inicia o motor de verificação de tempo
+    dispatch(ADD_TEXT, { payload });
     startCaptionLoop();
 
     if (feedback) {
@@ -439,3 +674,6 @@ export function openCaptionModal(container, onClose) {
     }
   });
 }
+
+
+

@@ -15,7 +15,6 @@ import {
   ResizablePanelGroup,
 } from "./ui-components.jsx";
 
-
 const stateManager = new StateManager({
   size: {
     width: 1920,
@@ -83,26 +82,25 @@ const Editor = () => {
         <Navbar />
       </header>
       <div className="flex flex-1 overflow-hidden relative z-0">
-        <ResizablePanelGroup style={{ flex: 1 }} direction="vertical">
+        {/* Painel lateral fixo de ponta a ponta */}
+        <Menu />
 
-    <ResizablePanel className="relative" defaultSize={70}>
-            <div className="flex h-full flex-1">
-              <Menu />
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  position: "relative",
-                  flex: 1,
-                  overflow: "hidden",
-                }}
-              >
-                <Scene stateManager={stateManager} />
-              </div>
+        {/* Área da direita: Palco em cima e Linha do Tempo em baixo, recuada após o painel */}
+        <ResizablePanelGroup style={{ flex: 1 }} direction="vertical">
+          <ResizablePanel className="relative" defaultSize={70}>
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                position: "relative",
+                flex: 1,
+                overflow: "hidden",
+              }}
+            >
+              <Scene stateManager={stateManager} />
             </div>
           </ResizablePanel>
 
-   
           <ResizableHandle />
           <ResizablePanel
             className="min-h-[50px]"

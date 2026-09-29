@@ -82,7 +82,6 @@ const ASPECT_RATIOS = [
   },
 ];
 
-
 export function Navbar() {
   const { size, setState } = useStore();
   const [isOpen, setIsOpen] = useState(false);
@@ -246,8 +245,7 @@ export function Navbar() {
           )}
         </div>
 
- 
-          {!isCropping ? (
+        {!isCropping ? (
           <button
             type="button"
             onClick={() => {
@@ -495,7 +493,6 @@ const TEXT_PRESETS = [
       borderColor: "transparent",
     },
   },
-
   {
     id: "oferta",
     label: "Oferta",
@@ -511,17 +508,13 @@ const TEXT_PRESETS = [
   },
 ];
 
-
-
-
-
 export function Menu() {
   const imageInputRef = useRef(null);
   const audioInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  // Painel lateral aberto ("text" | "effects" | "speed" | null)
-  const [activePanel, setActivePanel] = useState(null);
+  // Inicia com o painel de legenda fixo por defeito
+  const [activePanel, setActivePanel] = useState("caption");
 
   const [slots, setSlots] = useState([
     { id: 1, type: null, data: null, preview: null, textContent: null },
@@ -529,14 +522,10 @@ export function Menu() {
     { id: 3, type: null, data: null, preview: null, textContent: null },
   ]);
 
-
-
-// Função central que atualiza o item selecionado no Zustand e notifica o motor do DesignCombo
-const updateActiveItemProperty = (propertyPatch) => {
+  const updateActiveItemProperty = (propertyPatch) => {
     const state = useStore.getState();
     const { activeIds, trackItemIds, trackItemsMap, trackItemDetailsMap, setState, playerRef } = state;
     
-    // Obtém o elemento activo ou o primeiro elemento no palco
     const activeId = (activeIds && activeIds.length > 0) ? activeIds[0] : trackItemIds[0];
     if (!activeId) return;
 
@@ -570,7 +559,6 @@ const updateActiveItemProperty = (propertyPatch) => {
       },
     });
 
-    // >>> COLOQUE O SEU TRECHO AQUI <<<
     dispatch(EDIT_OBJECT, {
       payload: {
         [activeId]: {
@@ -580,21 +568,11 @@ const updateActiveItemProperty = (propertyPatch) => {
       },
     });
 
-    // Força o Remotion Player a redesenhar o quadro com o novo filtro aplicado
     if (playerRef?.current) {
       const currentFrame = playerRef.current.getCurrentFrame();
       playerRef.current.seekTo(currentFrame);
     }
   };
-
-
-
-
-
-
-
-
-
 
   const addMediaToFirstFreeSlot = (item) => {
     setSlots((prev) => {
@@ -839,88 +817,6 @@ const updateActiveItemProperty = (propertyPatch) => {
     e.target.value = "";
   };
 
-  const handleSelectTransition = (trans) => {
-    const payload = {
-      id: nanoid(),
-      type: "transition",
-      name: trans.name || trans.kind,
-      kind: trans.kind,
-      duration: trans.duration || 0.5,
-      direction: trans.direction || "from-bottom",
-      preview: trans.preview,
-    };
-    addMediaToFirstFreeSlot({
-      type: "transition",
-      data: payload,
-      preview: trans.preview,
-      textContent: trans.name || trans.kind,
-    });
-  };
-
-  // Aplica a Velocidade (Playback Rate) na Mídia Ativa
-  const handleApplySpeed = (speedMultiplier) => {
-    updateActiveItemProperty({
-      playbackRate: speedMultiplier,
-      details: { playbackRate: speedMultiplier },
-    });
-  };
-
-  // Cria a Legenda e Insere no Vídeo e no Rascunho
-  const handleCreateCaption = () => {
-    const captionId = nanoid();
-    const defaultCaptionText = "Sua legenda aqui";
-    const { size, duration, trackItemIds, trackItemsMap, trackItemDetailsMap, setState } = useStore.getState();
-
-    const canvasWidth = size?.width || 1920;
-    const canvasHeight = size?.height || 1080;
-
-    const newCaptionItem = {
-      id: captionId,
-      type: "caption",
-      name: "Legenda",
-      display: {
-        from: 0,
-        to: Math.min(5000, duration || 5000),
-      },
-      details: {
-        text: defaultCaptionText,
-        fontFamily: SECONDARY_FONT,
-        fontUrl: SECONDARY_FONT_URL,
-        fontSize: 54,
-        width: 900,
-        height: 120,
-        left: (canvasWidth - 900) / 2,
-        top: canvasHeight - 220,
-        textAlign: "center",
-        color: "#fde047",
-        fontWeight: "800",
-        backgroundColor: "rgba(0, 0, 0, 0.85)",
-        borderRadius: "8px",
-        padding: "8px 24px",
-      },
-    };
-
-    // Insere no palco e seleciona imediatamente
-    setState({
-      trackItemIds: [...trackItemIds, captionId],
-      trackItemsMap: {
-        ...trackItemsMap,
-        [captionId]: newCaptionItem,
-      },
-      trackItemDetailsMap: {
-        ...trackItemDetailsMap,
-        [captionId]: newCaptionItem.details,
-      },
-      activeIds: [captionId],
-    });
-
-    addMediaToFirstFreeSlot({
-      type: "caption",
-      data: newCaptionItem,
-      textContent: defaultCaptionText,
-    });
-  };
-
   return (
     <div className="flex h-full bg-sidebar border-r border-border/60 select-none shrink-0 overflow-visible">
       {/* 1. BARRA DE BOTÕES (itens) */}
@@ -950,7 +846,7 @@ const updateActiveItemProperty = (propertyPatch) => {
         <div className="mb-3 text-xs font-medium text-zinc-400">itens</div>
         <div className="flex flex-col gap-2">
           <Button
-            onClick={() => setActivePanel((prev) => (prev === "text" ? null : "text"))}
+            onClick={() => setActivePanel("text")}
             variant="secondary"
             className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
               activePanel === "text"
@@ -962,7 +858,6 @@ const updateActiveItemProperty = (propertyPatch) => {
           </Button>
           <Button
             onClick={() => {
-              setActivePanel(null);
               imageInputRef.current?.click();
             }}
             variant="secondary"
@@ -972,7 +867,6 @@ const updateActiveItemProperty = (propertyPatch) => {
           </Button>
           <Button
             onClick={() => {
-              setActivePanel(null);
               audioInputRef.current?.click();
             }}
             variant="secondary"
@@ -982,7 +876,6 @@ const updateActiveItemProperty = (propertyPatch) => {
           </Button>
           <Button
             onClick={() => {
-              setActivePanel(null);
               videoInputRef.current?.click();
             }}
             variant="secondary"
@@ -991,9 +884,8 @@ const updateActiveItemProperty = (propertyPatch) => {
             vídeo
           </Button>
 
-          {/* BOTÕES NOVOS */}
           <Button
-            onClick={() => setActivePanel((prev) => (prev === "effects" ? null : "effects"))}
+            onClick={() => setActivePanel("effects")}
             variant="secondary"
             className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
               activePanel === "effects"
@@ -1004,7 +896,7 @@ const updateActiveItemProperty = (propertyPatch) => {
             efeitos
           </Button>
           <Button
-            onClick={() => setActivePanel((prev) => (prev === "speed" ? null : "speed"))}
+            onClick={() => setActivePanel("speed")}
             variant="secondary"
             className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
               activePanel === "speed"
@@ -1014,33 +906,25 @@ const updateActiveItemProperty = (propertyPatch) => {
           >
             velocidade
           </Button>
-         <Button
-  onClick={() => setActivePanel((prev) => (prev === "caption" ? null : "caption"))}
-  variant="secondary"
-  className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
-    activePanel === "caption"
-      ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
-      : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
-  }`}
->
-  legenda
-</Button>
+          <Button
+            onClick={() => setActivePanel("caption")}
+            variant="secondary"
+            className={`w-full justify-center text-xs py-1.5 h-8 cursor-pointer transition-all ${
+              activePanel === "caption"
+                ? "bg-zinc-700 text-white font-semibold ring-1 ring-zinc-500"
+                : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200"
+            }`}
+          >
+            legenda
+          </Button>
         </div>
       </div>
 
       {/* 2. PAINEL DE TEXTOS */}
       {activePanel === "text" && (
-        <div className="w-56 p-3 flex flex-col h-full border-l border-border/50 bg-[#161618] shrink-0">
+        <div className="w-80 p-3 flex flex-col h-full border-l border-border/50 bg-[#161618] shrink-0">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
             <span className="text-xs font-medium text-zinc-300">Estilos de texto</span>
-            <button
-              type="button"
-              onClick={() => setActivePanel(null)}
-              className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
-              title="Fechar"
-            >
-              ✕
-            </button>
           </div>
           <div className="grid grid-cols-2 gap-2 overflow-y-auto pr-1 flex-1 [scrollbar-width:thin] [scrollbar-color:#3f3f46_transparent]">
             {TEXT_PRESETS.map((preset) => (
@@ -1074,34 +958,26 @@ const updateActiveItemProperty = (propertyPatch) => {
         </div>
       )}
 
+      {/* 3. PAINEL DE LEGENDA FIXO (Sem position fixed) */}
       {activePanel === "caption" && (
-  <div
-    ref={(el) => {
-      if (el) {
-        openCaptionModal(el, () => setActivePanel(null));
-      }
-    }}
-    className="shrink-0 h-full"
-  />
-)}
+        <div
+          ref={(el) => {
+            if (el) {
+              openCaptionModal(el, () => {});
+            }
+          }}
+          className="w-80 h-full bg-[#141416] border-l border-border/80 flex flex-col shrink-0 overflow-y-auto"
+        />
+      )}
 
-      {/* 3. PAINEL DE EFEITOS VISUAIS COM CONTROLES ROXOS */}
+      {/* 4. PAINEL DE EFEITOS VISUAIS */}
       {activePanel === "effects" && (
-        <div className="w-64 p-3 flex flex-col h-full border-l border-border/50 bg-[#141416] shrink-0 select-none">
+        <div className="w-80 p-3 flex flex-col h-full border-l border-border/50 bg-[#141416] shrink-0 select-none">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
             <span className="text-xs font-semibold text-zinc-200">Efeitos Visuais</span>
-            <button
-              type="button"
-              onClick={() => setActivePanel(null)}
-              className="text-zinc-500 hover:text-white text-xs cursor-pointer px-1 rounded"
-              title="Fechar"
-            >
-              ✕
-            </button>
           </div>
 
           <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1 [scrollbar-width:thin] [scrollbar-color:#3f3f46_transparent]">
-            {/* 1. Tela Verde */}
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
               <button
                 type="button"
@@ -1188,7 +1064,6 @@ const updateActiveItemProperty = (propertyPatch) => {
               </div>
             </div>
 
-            {/* 2. Remoção de preto/branco */}
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
               <button
                 type="button"
@@ -1275,7 +1150,6 @@ const updateActiveItemProperty = (propertyPatch) => {
               </div>
             </div>
 
-            {/* 3. VHS */}
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
               <button
                 type="button"
@@ -1362,7 +1236,6 @@ const updateActiveItemProperty = (propertyPatch) => {
               </div>
             </div>
 
-            {/* 4. Difusão */}
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col gap-2">
               <button
                 type="button"
@@ -1419,7 +1292,6 @@ const updateActiveItemProperty = (propertyPatch) => {
               </div>
             </div>
 
-            {/* 5. Preenchimento com desfoque */}
             <button
               type="button"
               onClick={() => {
@@ -1444,7 +1316,6 @@ const updateActiveItemProperty = (propertyPatch) => {
               <span className="text-[10px] bg-violet-800/80 px-1.5 py-0.5 rounded">Alternar</span>
             </button>
 
-            {/* 6. Vidro */}
             <button
               type="button"
               onClick={() => {
@@ -1472,19 +1343,19 @@ const updateActiveItemProperty = (propertyPatch) => {
         </div>
       )}
 
-      {/* 4. PAINEL DE VELOCIDADE */}
-{activePanel === "speed" && (
-  <div
-    ref={(el) => {
-      if (el) {
-        openSpeedModal(el, () => setActivePanel(null));
-      }
-    }}
-    className="shrink-0 h-full pointer-events-auto"
-  />
-)}
+      {/* 5. PAINEL DE VELOCIDADE */}
+      {activePanel === "speed" && (
+        <div
+          ref={(el) => {
+            if (el) {
+              openSpeedModal(el, () => {});
+            }
+          }}
+          className="w-80 shrink-0 h-full pointer-events-auto border-l border-border/50 bg-[#141416]"
+        />
+      )}
 
-      {/* 5. OS 3 CAMPOS DE RASCUNHO */}
+      {/* 6. OS 3 CAMPOS DE RASCUNHO */}
       <div className="flex flex-col justify-between w-60 p-3 border-l border-border/50 bg-[#121214] shrink-0">
         {slots.map((slot) => (
           <div
@@ -1522,9 +1393,6 @@ const updateActiveItemProperty = (propertyPatch) => {
                 {slot.type === "transition" && (
                   <span className="text-xs text-zinc-300 font-medium">✨ {slot.textContent}</span>
                 )}
-              
-
-
                 {slot.type === "text" && (
                   <div
                     style={{
@@ -1554,6 +1422,5 @@ const updateActiveItemProperty = (propertyPatch) => {
     </div>
   );
 }
-
 
 export default { Navbar, Menu };
