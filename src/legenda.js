@@ -70,27 +70,94 @@ export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, to
   let userWordIndex = 0;
   const updatedSegments = [];
 
+// Achata todas as palavras temporizadas da IA para servir de âncora de tempo pura
+  const timeAnchors = [];
   for (const seg of baseSegments) {
-    if (userWordIndex >= userWords.length) break;
-    const chunkWords = [];
-    for (const w of seg.words) {
-      if (userWordIndex < userWords.length) {
-        chunkWords.push({
-          word: userWords[userWordIndex],
-          start: w.start,
-          end: w.end,
-        });
-        userWordIndex++;
+    if (Array.isArray(seg.words)) {
+      for (const w of seg.words) {
+        timeAnchors.push({ start: w.start, end: w.end });
       }
     }
-    if (chunkWords.length > 0) {
-      updatedSegments.push({
-        start: chunkWords[0].start,
-        end: chunkWords[chunkWords.length - 1].end,
-        words: chunkWords,
-      });
-    }
   }
+
+
+const wordsPerSegment = 3;
+  const totalUserWords = userWords.length;
+  const totalAnchors = timeAnchors.length;
+  const latencyOffsetMs = 80;
+
+
+
+
+for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
+    const chunk = userWords.slice(i, i + wordsPerSegment);
+
+    let segStart, segEnd;
+
+    if (totalAnchors > 0) {
+      const startAnchorIdx = Math.min(
+        totalAnchors - 1,
+        Math.floor((i / totalUserWords) * totalAnchors)
+      );
+      const endAnchorIdx = Math.min(
+        totalAnchors - 1,
+        Math.max(startAnchorIdx, Math.floor(((i + chunk.length) / totalUserWords) * totalAnchors) - 1)
+      );
+
+      // Garante que o bloco começa no início exato da primeira palavra daquele bloco
+      segStart = Math.max(totalFromMs, timeAnchors[startAnchorIdx].start);
+      segEnd = Math.max(segStart + chunk.length * 250, timeAnchors[endAnchorIdx].end);
+    } else {
+      const duration = Math.max(totalToMs - totalFromMs, 1000);
+      segStart = Math.round(totalFromMs + (i / totalUserWords) * duration);
+      segEnd = Math.round(totalFromMs + ((i + chunk.length) / totalUserWords) * duration);
+    }
+
+    const chunkDuration = Math.max(segEnd - segStart, chunk.length * 200);
+    const wordDuration = Math.round(chunkDuration / chunk.length);
+
+    const timedWords = chunk.map((word, idx) => {
+      const globalIdx = i + idx;
+      let wStart, wEnd;
+
+      // Se temos as âncoras reais de som para cada palavra específica, respeita o carimbo individual
+      if (totalAnchors > 0 && globalIdx < totalAnchors) {
+        wStart = Math.max(totalFromMs, timeAnchors[globalIdx].start);
+        wEnd = Math.max(wStart + 150, timeAnchors[globalIdx].end);
+      } else {
+        wStart = segStart + idx * wordDuration;
+        wEnd = idx === chunk.length - 1 ? segEnd : segStart + (idx + 1) * wordDuration;
+      }
+
+      return {
+        word: String(word).toUpperCase(),
+        start: wStart,
+        end: wEnd,
+      };
+    });
+
+    // O bloco pai se ajusta do início da primeira palavra até o fim da última
+    updatedSegments.push({
+      start: timedWords[0].start,
+      end: timedWords[timedWords.length - 1].end,
+      words: timedWords,
+    });
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  userWordIndex = totalUserWords;
 
   if (userWordIndex < userWords.length) {
     const remainingWords = userWords.slice(userWordIndex);
@@ -348,13 +415,16 @@ function startCaptionLoop() {
           const border = captionConfig.hasBg ? "2px solid rgba(255, 255, 255, 0.2)" : "none";
           const shadow = captionConfig.hasBg ? "0 10px 35px rgba(0,0,0,0.85)" : "none";
 
+
+
+
           const wordsHtml = currentSegment.words
             .map((w) => {
               const isWordActive = currentTimeMs >= w.start && currentTimeMs < w.end;
               const color = isWordActive ? captionConfig.activeColor : captionConfig.textColor;
-              const scale = isWordActive ? "scale(1.15)" : "scale(1)";
+              const scale = isWordActive ? "scale(1.12)" : "scale(1)";
               const textShadow = isWordActive
-                ? `0 0 20px ${captionConfig.activeColor}, 3px 3px 0 #000`
+                ? `0 0 18px ${captionConfig.activeColor}, 3px 3px 0 #000`
                 : "3px 3px 0 #000";
 
               return `
@@ -369,11 +439,27 @@ function startCaptionLoop() {
                   transition: transform 0.05s ease, color 0.05s ease;
                   text-shadow: ${textShadow};
                   display: inline-block;
+                  margin: 0 8px;
+                  white-space: nowrap;
                   pointer-events: none;
                 ">${w.word}</span>
               `;
             })
             .join("");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
           overlay.innerHTML = `
             <div style="
@@ -481,7 +567,8 @@ export function openCaptionModal(container, onClose) {
 
       <!-- Base: Botão Aplicar -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
-        <button type="button" id="btn-caption-submit" style="width: 100%; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; font-weight: 700; font-size: 13px; padding: 11px; border-radius: 8px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); transition: transform 0.1s ease;">✨ Aplicar Legenda no Vídeo</button>
+        <button type="button" id="btn-caption-submit" style="width: 100%; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; font-weight: 700; font-size: 13px; padding: 11px; border-radius: 8px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); transition: transform 0.1s ease;">
+        Aplicar Legenda no Vídeo</button>
         <span id="caption-feedback" style="font-size: 11px; color: #4ade80; text-align: center; display: none; font-weight: 500;">Legenda aplicada com sucesso!</span>
       </div>
     </div>
@@ -519,8 +606,25 @@ export function openCaptionModal(container, onClose) {
   pickerFont?.addEventListener("input", (e) => {
     captionConfig.fontSize = Number(e.target.value);
   });
-  textarea?.addEventListener("input", (e) => {
+textarea?.addEventListener("input", (e) => {
     lastInputText = e.target.value;
+  });
+
+  // Impede que o editor/canvas roube o foco, o cursor e as teclas digitadas
+  textarea?.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+  });
+  textarea?.addEventListener("keyup", (e) => {
+    e.stopPropagation();
+  });
+  textarea?.addEventListener("keypress", (e) => {
+    e.stopPropagation();
+  });
+  textarea?.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+  });
+  textarea?.addEventListener("click", (e) => {
+    e.stopPropagation();
   });
 
   btnClose?.addEventListener("click", () => {
@@ -583,7 +687,7 @@ export function openCaptionModal(container, onClose) {
       rawCaptionText = data.text;
       customWhisperSegments = groupWhisperWordsIntoSegments(data.words, 3);
 
-      btnAi.innerText = "✅ Transcrição Concluída!";
+      btnAi.innerText = " Transcrição Concluída!";
       if (transcribeStatus) {
         transcribeStatus.style.color = "#4ade80";
         transcribeStatus.innerText = "Texto inserido abaixo! Faça suas correções e clique em Aplicar.";
@@ -643,6 +747,9 @@ export function openCaptionModal(container, onClose) {
       videoEndMs
     );
 
+    // Atualiza a memória ativa para o texto corrigido não ser sobrescrito pelo cache antigo
+    customWhisperSegments = finalSegments;
+
     const payload = {
       id: captionId,
       type: "caption",
@@ -652,6 +759,7 @@ export function openCaptionModal(container, onClose) {
         from: videoStartMs,
         to: videoEndMs,
       },
+
       details: {
         text: rawText,
         playbackRate: currentRate,
@@ -662,8 +770,14 @@ export function openCaptionModal(container, onClose) {
         fontSize: captionConfig.fontSize,
       },
     };
+// Atualiza a store global para o motor de legenda sem criar o bloco físico na timeline
+    useStore.setState((prev) => ({
+      trackItemsMap: {
+        ...prev.trackItemsMap,
+        [captionId]: payload,
+      },
+    }));
 
-    dispatch(ADD_TEXT, { payload });
     startCaptionLoop();
 
     if (feedback) {

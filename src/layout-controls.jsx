@@ -957,12 +957,12 @@ export function Menu() {
           </div>
         </div>
       )}
-
-      {/* 3. PAINEL DE LEGENDA FIXO (Sem position fixed) */}
+  {/* 3. PAINEL DE LEGENDA FIXO (Sem recriação contínua de DOM) */}
       {activePanel === "caption" && (
         <div
           ref={(el) => {
-            if (el) {
+            if (el && !el.dataset.initialized) {
+              el.dataset.initialized = "true";
               openCaptionModal(el, () => {});
             }
           }}

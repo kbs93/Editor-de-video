@@ -960,7 +960,6 @@ CanvasTimeline.registerItems({
   Image: ImageItem,
   Video: VideoItem,
   Audio: AudioItem,
-  Caption: CaptionItem,
   Helper,
   Track,
   PreviewTrackItem,
@@ -1427,23 +1426,23 @@ const Timeline = ({ stateManager }) => {
         right: TIMELINE_OFFSET_CANVAS_RIGHT,
       },
       sizesMap: {
-        caption: 32,
         text: 32,
         audio: 36,
         customTrack: 40,
         customTrack2: 40,
       },
       acceptsMap: {
-        text: ["text", "caption"],
+        text: ["text"],
         image: ["image", "video"],
         video: ["video", "image"],
         audio: ["audio"],
-        caption: ["caption", "text"],
         template: ["template"],
         customTrack: ["video", "image"],
         customTrack2: ["video", "image"],
         main: ["video", "image"],
       },
+
+
       guideLineColor: "#ffffff",
     });
 
