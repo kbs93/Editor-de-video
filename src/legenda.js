@@ -538,11 +538,7 @@ export function openCaptionModal(container, onClose) {
   container.innerHTML = `
     <div style="width: 100%; height: 100%; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background-color: #141416; gap: 10px; overflow: hidden;">
       
-      <!-- Topo: Título e Botão Fechar -->
-      <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #27272a; flex-shrink: 0;">
-        <span style="font-size: 13px; font-weight: 700; color: #f4f4f5; font-family: sans-serif;">Criar Legenda Dinâmica</span>
-        <button type="button" id="btn-caption-close" style="background: transparent; border: none; color: #71717a; font-size: 15px; cursor: pointer; border-radius: 4px; padding: 2px 6px;" title="Fechar">✕</button>
-      </div>
+ 
 
       <!-- Botão Transcrição IA -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
@@ -551,17 +547,27 @@ export function openCaptionModal(container, onClose) {
           id="btn-ai-transcribe" 
           style="width: 100%; background: #1e1e22; border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 600; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;"
         >
-          Transcrever o Vídeo (IA)
+         Criar Legenda Dinâmica
         </button>
         <span id="transcribe-status" style="font-size: 11px; color: #a1a1aa; text-align: center; display: none; line-height: 1.2;">Aguarde...</span>
       </div>
 
-      <!-- Caixa de Texto Esticada Verticalmente -->
+<!-- Caixa de Texto Esticada Verticalmente -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0;">
-        <label style="font-size: 11px; color: #a1a1aa; font-weight: 500; font-family: sans-serif; flex-shrink: 0;">
-          Texto falado no vídeo:
-        </label>
-        <textarea id="caption-input-text" placeholder="Cole aqui ou clique no botão acima para transcrever..." style="width: 100%; flex: 1; height: 100%; background-color: #18181b; border: 1.5px solid #27272a; border-radius: 8px; padding: 10px; font-size: 12px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.45; scrollbar-width: thin; scrollbar-color: #52525b transparent;">${lastInputText}</textarea>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+          <label style="font-size: 11px; color: #a1a1aa; font-weight: 500; font-family: sans-serif;">
+            Texto falado no vídeo:
+          </label>
+          <button 
+            type="button" 
+            id="btn-caption-clear" 
+            style="background: #982828; border-radius: 5px; color: #f0ebeb; font-size: 13px; cursor: pointer; padding: 2px 4px; font-weight: 600;" 
+            title="Limpar texto"
+          >
+            Limpar
+          </button>
+        </div>
+        <textarea id="caption-input-text" placeholder="Para criar uma legenda Basta clicar no botao Criar Legenda Dinâmica, o texto aparecer aqui" style="width: 100%; flex: 1; height: 100%; background-color: #18181b; border: 1.5px solid #27272a; border-radius: 8px; padding: 10px; font-size: 12px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.45; scrollbar-width: thin; scrollbar-color: #52525b transparent;">${lastInputText}</textarea>
       </div>
 
       <!-- Bloco de Aparência da Legenda -->
@@ -604,8 +610,9 @@ export function openCaptionModal(container, onClose) {
     </div>
   `;
 
-  const btnClose = container.querySelector("#btn-caption-close");
+const btnClose = container.querySelector("#btn-caption-close");
   const btnSubmit = container.querySelector("#btn-caption-submit");
+  const btnClear = container.querySelector("#btn-caption-clear");
   const btnAi = container.querySelector("#btn-ai-transcribe");
   const transcribeStatus = container.querySelector("#transcribe-status");
   const textarea = container.querySelector("#caption-input-text");
@@ -633,12 +640,49 @@ export function openCaptionModal(container, onClose) {
       pickerBg.disabled = !captionConfig.hasBg;
     }
   });
-  pickerFont?.addEventListener("input", (e) => {
-    captionConfig.fontSize = Number(e.target.value);
+
+btnClear?.addEventListener("click", () => {
+    if (textarea) {
+      textarea.value = "";
+      lastInputText = "";
+      rawCaptionText = "";
+      customWhisperSegments = null;
+      textarea.focus();
+    }
   });
-textarea?.addEventListener("input", (e) => {
+
+  pickerFont?.addEventListener("input", (e) => {
+    const newSize = Number(e.target.value);
+    captionConfig.fontSize = newSize;
+
+    if (textarea) {
+      textarea.style.fontSize = `${Math.max(11, Math.round(newSize * 0.28))}px`;
+    }
+
+    if (activeCaptionId) {
+      const state = useStore.getState();
+      const currentItem = state.trackItemsMap?.[activeCaptionId];
+      if (currentItem) {
+        useStore.setState((prev) => ({
+          trackItemsMap: {
+            ...prev.trackItemsMap,
+            [activeCaptionId]: {
+              ...currentItem,
+              details: {
+                ...currentItem.details,
+                fontSize: newSize,
+              },
+            },
+          },
+        }));
+      }
+    }
+  });
+
+  textarea?.addEventListener("input", (e) => {
     lastInputText = e.target.value;
   });
+
 
   // Impede que o editor/canvas roube o foco, o cursor e as teclas digitadas
   textarea?.addEventListener("keydown", (e) => {
@@ -737,7 +781,7 @@ if (transcribeStatus) {
         btnAi.style.opacity = "1";
         btnAi.style.cursor = "pointer";
         btnAi.style.backgroundColor = "#1e1e22";
-        btnAi.innerText = "Transcrever o Vídeo (IA)";
+        btnAi.innerText = "Criar Legenda Dinâmica";
       }, 3500);
     }
   });
