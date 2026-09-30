@@ -425,3 +425,144 @@ input[type="number"]::-webkit-outer-spin-button {
   top: 50%;
   transform: translate(0, -50%);
 }
+
+
+
+/* ==========================================
+   ESTILOS DA BARRA DE CONTROLE DA TIMELINE
+   ========================================== */
+
+.timeline-header-root {
+  position: relative;
+  height: 50px;
+  flex: none;
+}
+
+.timeline-header-container {
+  position: absolute;
+  height: 50px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.timeline-header-grid {
+  height: 36px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 260px 1fr;
+  align-items: center;
+}
+
+/* Grupo da esquerda (Excluir, Dividir, Clone) */
+.timeline-actions-group {
+  display: flex;
+  padding: 0 8px;
+  gap: 6px;
+}
+
+/* Estilo base comum dos botões de ação */
+.timeline-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  height: 28px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+/* Botão Excluir */
+.timeline-btn-delete {
+  background-color: #dc2626;
+  color: #ffffff;
+}
+.timeline-btn-delete:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+/* Botão Dividir */
+.timeline-btn-split {
+  background-color: #27272a;
+  color: #f4f4f5;
+  border-color: #3f3f46;
+}
+.timeline-btn-split:hover:not(:disabled) {
+  background-color: #3f3f46;
+}
+
+/* Botão Clone */
+.timeline-btn-clone {
+  background-color: #27272a;
+  color: #f4f4f5;
+  border-color: #3f3f46;
+}
+.timeline-btn-clone:hover:not(:disabled) {
+  background-color: #3f3f46;
+}
+
+/* Estado desativado para todos os botões de ação */
+.timeline-btn:disabled {
+  background-color: #18181b;
+  color: #71717a;
+  border-color: transparent;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Grupo central: Playback e Timer */
+.timeline-player-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.timeline-playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Botões do reprodutor (voltar, play, avançar) */
+.timeline-btn-player {
+  background-color: transparent;
+  color: #d4d4d8;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.timeline-btn-player:hover {
+  background-color: #27272a;
+  color: #ffffff;
+}
+
+.timeline-btn-play {
+  color: #38bdf8;
+}
+
+/* Contador de Tempo */
+.timeline-timer-display {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: monospace;
+}
+.timeline-current-time {
+  font-weight: 600;
+  color: #f4f4f5;
+}
+.timeline-timer-separator {
+  color: #71717a;
+}
+.timeline-total-duration {
+  color: #a1a1aa;
+}

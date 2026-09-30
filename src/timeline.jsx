@@ -1090,48 +1090,83 @@ const Header = () => {
     };
   }, [playerRef]);
 
-  return (
-    <div style={{ position: "relative", height: "50px", flex: "none" }}>
-      <div style={{ position: "absolute", height: 50, width: "100%", display: "flex", alignItems: "center" }}>
-        <div style={{ height: 36, width: "100%", display: "grid", gridTemplateColumns: "1fr 260px 1fr", alignItems: "center" }}>
-          <div className="flex px-2">
-            <Button disabled={!activeIds.length} onClick={doActiveDelete} variant={"ghost"} size={"sm"} className="flex items-center gap-1 px-2">
-              <Trash size={14} /> Delete
+return (
+    <div className="timeline-header-root">
+      <div className="timeline-header-container">
+        <div className="timeline-header-grid">
+          {/* Botões de Ação: Excluir, Dividir, Clone */}
+          <div className="timeline-actions-group">
+            <Button
+              disabled={!activeIds.length}
+              onClick={doActiveDelete}
+              size={"sm"}
+              className="timeline-btn timeline-btn-delete"
+            >
+              <Trash size={14} /> Excluir
             </Button>
-            <Button disabled={!activeIds.length} onClick={doActiveSplit} variant={"ghost"} size={"sm"} className="flex items-center gap-1 px-2">
-              <SquareSplitHorizontal size={15} /> Split
+            <Button
+              disabled={!activeIds.length}
+              onClick={doActiveSplit}
+              size={"sm"}
+              className="timeline-btn timeline-btn-split"
+            >
+              <SquareSplitHorizontal size={15} /> Dividir
             </Button>
-            <Button disabled={!activeIds.length} onClick={() => dispatch(LAYER_CLONE)} variant={"ghost"} size={"sm"} className="flex items-center gap-1 px-2">
+            <Button
+              disabled={!activeIds.length}
+              onClick={() => dispatch(LAYER_CLONE)}
+              size={"sm"}
+              className="timeline-btn timeline-btn-clone"
+            >
               <SquareSplitHorizontal size={15} /> Clone
             </Button>
           </div>
-          <div className="flex items-center justify-center">
-            <div>
-              <Button onClick={doActiveDelete} variant={"ghost"} size={"icon"}>
+
+          {/* Botões Centrais de Reprodução do Player */}
+          <div className="timeline-player-group">
+            <div className="timeline-playback-controls">
+              <Button
+                onClick={doActiveDelete}
+                size={"icon"}
+                className="timeline-btn-player"
+              >
                 <IconPlayerSkipBack size={14} />
               </Button>
-              <Button onClick={playing ? handlePause : handlePlay} variant={"ghost"} size={"icon"}>
+              <Button
+                onClick={playing ? handlePause : handlePlay}
+                size={"icon"}
+                className="timeline-btn-player timeline-btn-play"
+              >
                 {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
               </Button>
-              <Button onClick={doActiveSplit} variant={"ghost"} size={"icon"}>
+              <Button
+                onClick={doActiveSplit}
+                size={"icon"}
+                className="timeline-btn-player"
+              >
                 <IconPlayerSkipForward size={14} />
               </Button>
             </div>
-            <div className="text-xs font-light" style={{ display: "grid", alignItems: "center", gridTemplateColumns: "54px 4px 54px", paddingTop: "2px", justifyContent: "center" }}>
-              <div className="font-medium text-zinc-200" style={{ display: "flex", justifyContent: "center" }} data-current-time={currentFrame / fps} id="video-current-time">
+
+            {/* Contador de Tempo */}
+            <div className="timeline-timer-display">
+              <span className="timeline-current-time" data-current-time={currentFrame / fps} id="video-current-time">
                 {frameToTimeString({ frame: currentFrame }, { fps })}
-              </div>
-              <span>/</span>
-              <div className="text-muted-foreground" style={{ display: "flex", justifyContent: "center" }}>
+              </span>
+              <span className="timeline-timer-separator">/</span>
+              <span className="timeline-total-duration">
                 {timeToString({ time: duration })}
-              </div>
+              </span>
             </div>
           </div>
+
           <ZoomControl scale={scale} onChangeTimelineScale={changeScale} duration={duration} />
         </div>
       </div>
     </div>
   );
+
+
 };
 
 // ==========================================
