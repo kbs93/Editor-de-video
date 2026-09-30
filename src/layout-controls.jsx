@@ -515,6 +515,15 @@ export function Menu() {
 
   // Inicia com o painel de legenda fixo por defeito
   const [activePanel, setActivePanel] = useState("caption");
+  useEffect(() => {
+    const handlePanelChange = (e) => {
+      if (e.detail?.panel) {
+        setActivePanel(e.detail.panel);
+      }
+    };
+    window.addEventListener("OPEN_SIDEBAR_PANEL", handlePanelChange);
+    return () => window.removeEventListener("OPEN_SIDEBAR_PANEL", handlePanelChange);
+  }, []);
 
   const [slots, setSlots] = useState([
     { id: 1, type: null, data: null, preview: null, textContent: null },
@@ -603,7 +612,27 @@ export function Menu() {
     e.dataTransfer.effectAllowed = "copyMove";
   };
 
-  const handleSelectTextPreset = (preset) => {
+
+const handleSelectTextPreset = (preset) => {
+    const { activeIds, trackItemsMap } = useStore.getState();
+    const activeId = activeIds && activeIds.length > 0 ? activeIds[0] : null;
+
+    // Se houver uma legenda selecionada na tela, aplica o estilo nela imediatamente
+    if (activeId && trackItemsMap[activeId]?.type === "caption") {
+      updateActiveItemProperty({
+        details: {
+          textColor: preset.details.color || "#ffffff",
+          fontFamily: preset.details.fontFamily || SECONDARY_FONT,
+          fontWeight: preset.details.fontWeight || "900",
+          borderWidth: preset.details.borderWidth || 0,
+          borderColor: preset.details.borderColor || "transparent",
+          boxShadow: preset.details.boxShadow || null,
+        },
+      });
+      return;
+    }
+
+    // Comportamento padrão para novos textos se não houver legenda selecionada
     const { size } = useStore.getState();
     const canvasWidth = size?.width || 1920;
     const canvasHeight = size?.height || 1080;
@@ -649,6 +678,12 @@ export function Menu() {
       styleDetails: preset.details,
     });
   };
+
+
+
+
+
+
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];

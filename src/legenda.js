@@ -411,120 +411,25 @@ function ensureOverlayElement() {
 // 4. MOTOR DE SINCRONIZAÇÃO
 // ==========================================
 function startCaptionLoop() {
-  if (animFrameId) cancelAnimationFrame(animFrameId);
-
-  function update() {
-    const overlay = ensureOverlayElement();
-    const state = useStore.getState();
-    const playerRef = state.playerRef?.current;
-
-    const captionItem = activeCaptionId ? state.trackItemsMap?.[activeCaptionId] : null;
-
-    if (captionItem && captionItem.display && rawCaptionText) {
-      const currentFrame = playerRef?.getCurrentFrame ? playerRef.getCurrentFrame() : 0;
-      const fps = state.fps || 30;
-      const currentTimeMs = (currentFrame / fps) * 1000;
-
-      const fromMs = captionItem.display.from;
-      const toMs = captionItem.display.to;
-
-      if (currentTimeMs >= fromMs && currentTimeMs < toMs) {
-        const segments =
-          captionItem.details?.segments ||
-          customWhisperSegments ||
-          buildTimedSegments(rawCaptionText, fromMs, toMs);
-
-        let currentSegment = segments.find(
-          (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
-        );
-
-        if (currentSegment) {
-          overlay.style.display = "flex";
-
-          const bg = captionConfig.hasBg ? captionConfig.bgColor : "transparent";
-          const border = captionConfig.hasBg ? "2px solid rgba(255, 255, 255, 0.2)" : "none";
-          const shadow = captionConfig.hasBg ? "0 10px 35px rgba(0,0,0,0.85)" : "none";
-
-
-
-
-          const wordsHtml = currentSegment.words
-            .map((w) => {
-              const isWordActive = currentTimeMs >= w.start && currentTimeMs < w.end;
-              const color = isWordActive ? captionConfig.activeColor : captionConfig.textColor;
-              const scale = isWordActive ? "scale(1.12)" : "scale(1)";
-              const textShadow = isWordActive
-                ? `0 0 18px ${captionConfig.activeColor}, 3px 3px 0 #000`
-                : "3px 3px 0 #000";
-
-              return `
-                <span style="
-                  font-family: Impact, sans-serif;
-                  font-size: ${captionConfig.fontSize}px;
-                  font-weight: 900;
-                  letter-spacing: 2px;
-                  text-transform: uppercase;
-                  color: ${color};
-                  transform: ${scale};
-                  transition: transform 0.05s ease, color 0.05s ease;
-                  text-shadow: ${textShadow};
-                  display: inline-block;
-                  margin: 0 8px;
-                  white-space: nowrap;
-                  pointer-events: none;
-                ">${w.word}</span>
-              `;
-            })
-            .join("");
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          overlay.innerHTML = `
-            <div style="
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              align-items: center;
-              gap: 14px;
-              padding: 12px 28px;
-              background-color: ${bg};
-              border-radius: 16px;
-              border: ${border};
-              box-shadow: ${shadow};
-            ">
-              ${wordsHtml}
-            </div>
-          `;
-        } else {
-          overlay.innerHTML = "";
-          overlay.style.display = "none";
-        }
-      } else {
-        overlay.innerHTML = "";
-        overlay.style.display = "none";
-      }
-    } else {
-      overlay.innerHTML = "";
-      overlay.style.display = "none";
-    }
-
-    animFrameId = requestAnimationFrame(update);
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
   }
-
-  animFrameId = requestAnimationFrame(update);
+  const oldOverlay = document.getElementById("dynamic-caption-overlay");
+  if (oldOverlay) {
+    oldOverlay.remove();
+  }
+  captionOverlayElement = null;
 }
+
+
+
+
+
+
+
+
+
 
 // ==========================================
 // 5. PAINEL LATERAL COM BOTÃO WHISPER
@@ -825,6 +730,10 @@ if (transcribeStatus) {
 
     // Atualiza a memória ativa para o texto corrigido não ser sobrescrito pelo cache antigo
     customWhisperSegments = finalSegments;
+    const canvasWidth = state.size?.width || 1920;
+    const canvasHeight = state.size?.height || 1080;
+    const boxWidth = Math.round(canvasWidth * 0.7); // 70% da largura
+    const boxHeight = 160;
 
     const payload = {
       id: captionId,
@@ -835,7 +744,6 @@ if (transcribeStatus) {
         from: videoStartMs,
         to: videoEndMs,
       },
-
       details: {
         text: rawText,
         playbackRate: currentRate,
@@ -844,13 +752,24 @@ if (transcribeStatus) {
         textColor: captionConfig.textColor,
         backgroundColor: captionConfig.hasBg ? captionConfig.bgColor : "transparent",
         fontSize: captionConfig.fontSize,
+        width: boxWidth,
+        height: boxHeight,
+        left: (canvasWidth - boxWidth) / 2,
+        top: canvasHeight - boxHeight - 120,
       },
     };
+  
 // Atualiza a store global para o motor de legenda sem criar o bloco físico na timeline
-    useStore.setState((prev) => ({
+   useStore.setState((prev) => ({
+      trackItemIds: prev.trackItemIds?.includes(captionId) ? prev.trackItemIds : [...(prev.trackItemIds || []), captionId],
+      activeIds: [captionId],
       trackItemsMap: {
         ...prev.trackItemsMap,
         [captionId]: payload,
+      },
+      trackItemDetailsMap: {
+        ...prev.trackItemDetailsMap,
+        [captionId]: payload.details,
       },
     }));
 

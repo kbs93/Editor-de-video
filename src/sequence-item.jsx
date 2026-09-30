@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, useCurrentFrame } from "remotion";
-import {
+import { dispatch } from "@designcombo/events";
+import { EDIT_OBJECT } from "@designcombo/state";
+import useStore, {
   calculateContainerStyles,
   calculateMediaStyles,
   calculateTextStyles,
-} from "./editor-store";
+} from "./editor-store.js";
+
+
 import {
   calculateFrames,
   combineAnimations,
@@ -400,6 +404,555 @@ function VideoWithThreeEffects({ item, options }) {
     </Sequence>
   );
 }
+
+
+function CaptionRenderer({
+  item,
+  fps,
+  playbackRate,
+  segments,
+  activeCol,
+  normalCol,
+  fSize,
+  details,
+}) {
+  const frame = useCurrentFrame();
+  const { activeIds, size } = useStore();
+  const isSelected = activeIds.includes(item.id);
+
+  const [showFontMenu, setShowFontMenu] = useState(false);
+
+  // Escala para compensar o zoom do canvas e manter a toolbar nítida
+  const toolbarScale = Math.max(1.8, (size?.width || 1920) / 900);
+
+  const currentTimeMs = (frame / fps) * 1000 * playbackRate;
+  const currentSegment = segments.find(
+    (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
+  );
+
+  // Atualiza propriedades de texto da legenda ativa
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const updateCaptionStyle = (newDetails) => {
+    const state = useStore.getState();
+    const currentItem = state.trackItemsMap[item.id] || {};
+    const updatedDetails = {
+      ...(currentItem.details || {}),
+      ...newDetails,
+    };
+
+    useStore.setState((prev) => ({
+      trackItemsMap: {
+        ...prev.trackItemsMap,
+        [item.id]: {
+          ...currentItem,
+          details: updatedDetails,
+        },
+      },
+      trackItemDetailsMap: {
+        ...prev.trackItemDetailsMap,
+        [item.id]: updatedDetails,
+      },
+    }));
+
+    dispatch(EDIT_OBJECT, {
+      payload: {
+        [item.id]: {
+          details: updatedDetails,
+        },
+      },
+    });
+
+    // Força o Remotion a repintar o frame imediatamente
+    if (state.playerRef?.current) {
+      const currentFrame = state.playerRef.current.getCurrentFrame();
+      state.playerRef.current.seekTo(currentFrame);
+    }
+  };
+
+  
+
+  const currentFontFamily = details.fontFamily || "Poppins";
+  const currentFontWeight = details.fontWeight || "bold";
+  const currentFontSize = details.fontSize || fSize || 54;
+  const currentFontStyle = details.fontStyle || "normal";
+  const currentTextAlign = details.textAlign || "center";
+
+  return (
+    <div
+      data-track-item="transition-element"
+      className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
+      style={{
+        position: "absolute",
+        left: details.left || 0,
+        top: details.top || 0,
+        width: details.width || 900,
+        height: details.height || 90,
+        pointerEvents: "auto",
+        cursor: "move",
+      }}
+    >
+      {/* 1. TEXTO PRINCIPAL: Primeiro filho absoluto para cálculo do Moveable */}
+      <div style={{ width: "100%", height: "100%", position: "relative", pointerEvents: "none" }}>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: currentTextAlign,
+          }}
+        >
+          {currentSegment && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: currentTextAlign === "left" ? "flex-start" : currentTextAlign === "right" ? "flex-end" : "center",
+                alignItems: "center",
+                gap: "10px",
+                width: "100%",
+                padding: "2px 8px",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+              }}
+            >
+              {currentSegment.words.map((w, idx) => {
+                const isWordActive =
+                  currentTimeMs >= w.start && currentTimeMs < w.end;
+
+                return (
+                  <span
+                    key={idx}
+                    style={{
+                      fontFamily: currentFontFamily,
+                      fontSize: `${currentFontSize}px`,
+                      fontWeight: currentFontWeight,
+                      fontStyle: currentFontStyle,
+                      letterSpacing: "1px",
+                      textTransform: details.textTransform || "uppercase",
+                      color: isWordActive ? activeCol : normalCol,
+                      textShadow:
+                        details.boxShadow
+                          ? `${details.boxShadow.x}px ${details.boxShadow.y}px ${details.boxShadow.blur}px ${details.boxShadow.color}`
+                          : isWordActive
+                          ? `0 0 18px ${activeCol}, 2px 2px 0 #000`
+                          : "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000",
+                      WebkitTextStroke: details.borderWidth
+                        ? `${details.borderWidth}px ${details.borderColor}`
+                        : "none",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {w.word}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. BARRA FLUTUANTE COM O LÁPIS E O T */}
+      {isSelected && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: `-${Math.round(52 * toolbarScale)}px`,
+            left: "50%",
+            transform: `translateX(-50%) scale(${toolbarScale})`,
+            transformOrigin: "bottom center",
+            backgroundColor: "#ffffff",
+            borderRadius: "10px",
+            padding: "4px 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "14px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+            zIndex: 999999,
+            pointerEvents: "auto",
+            width: "max-content",
+            height: "40px",
+            boxSizing: "border-box",
+          }}
+        >
+          {/* Botão Lápis: Abre/Fecha a caixinha flutuante de Fonte */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFontMenu((prev) => !prev);
+            }}
+            title="Formatar Fonte"
+            style={{
+              border: "none",
+              background: showFontMenu ? "#f4f4f5" : "transparent",
+              cursor: "pointer",
+              padding: "4px 8px",
+              margin: "0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#18181b",
+              borderRadius: "6px",
+              transition: "background 0.15s ease",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+            </svg>
+          </button>
+
+          {/* Divisor Vertical */}
+          <div
+            style={{
+              width: "1.5px",
+              height: "22px",
+              backgroundColor: "#e4e4e7",
+            }}
+          />
+
+          {/* Botão T: Abre a barra de Estilos de Texto */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("OPEN_SIDEBAR_PANEL", {
+                  detail: { panel: "text" },
+                })
+              );
+            }}
+            title="Estilos de Texto"
+            style={{
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: "4px 8px",
+              margin: "0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "900",
+              fontSize: "20px",
+              fontFamily: "sans-serif",
+              color: "#18181b",
+              borderRadius: "6px",
+              transition: "background 0.15s ease",
+            }}
+          >
+            T
+          </button>
+        </div>
+      )}
+
+      {/* 3. MENU FLUTUANTE DE FONTE (Exatamente igual à Imagem de Referência) */}
+
+
+
+
+
+
+
+
+
+
+{isSelected && showFontMenu && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: `-${Math.round(220 * toolbarScale)}px`,
+            left: "50%",
+            transform: `translateX(-50%) scale(${toolbarScale})`,
+            transformOrigin: "bottom center",
+            backgroundColor: "#ffffff",
+            borderRadius: "10px",
+            padding: "14px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+            zIndex: 1000000,
+            pointerEvents: "auto",
+            width: "250px",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            fontFamily: "sans-serif",
+            color: "#18181b",
+          }}
+        >
+
+
+
+
+
+          {/* Cabeçalho do Menu */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "14px", fontWeight: "700", color: "#18181b" }}>Fonte</span>
+            <button
+              type="button"
+              onClick={() => setShowFontMenu(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "12px",
+                color: "#71717a",
+                padding: "2px",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Seletor de Família de Fonte (Poppins, Roboto, Impact...) */}
+          <select
+            value={currentFontFamily}
+            onChange={(e) => updateCaptionStyle({ fontFamily: e.target.value })}
+            style={{
+              width: "100%",
+              padding: "7px 10px",
+              borderRadius: "6px",
+              border: "1.5px solid #e4e4e7",
+              backgroundColor: "#ffffff",
+              fontSize: "13px",
+              color: "#18181b",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="Poppins">Poppins</option>
+            <option value="Roboto">Roboto</option>
+            <option value="Impact">Impact</option>
+            <option value="Arial">Arial</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Inter">Inter</option>
+          </select>
+
+          {/* Linha de Peso (Negrito) e Tamanho */}
+          <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+            <select
+              value={currentFontWeight}
+              onChange={(e) => updateCaptionStyle({ fontWeight: e.target.value })}
+              style={{
+                flex: 1,
+                padding: "7px 10px",
+                borderRadius: "6px",
+                border: "1.5px solid #e4e4e7",
+                backgroundColor: "#ffffff",
+                fontSize: "13px",
+                color: "#18181b",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="normal">Normal</option>
+              <option value="600">Médio</option>
+              <option value="bold">Negrito</option>
+              <option value="900">Extra Negrito</option>
+            </select>
+
+        <select
+              value={Number(currentFontSize)}
+              onChange={(e) => {
+                e.stopPropagation();
+                updateCaptionStyle({ fontSize: Number(e.target.value) });
+              }}
+              style={{
+                width: "80px",
+                padding: "7px 10px",
+                borderRadius: "6px",
+                border: "1.5px solid #e4e4e7",
+                backgroundColor: "#ffffff",
+                fontSize: "13px",
+                color: "#18181b",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              {[24, 32, 40, 48, 54, 60, 72, 84, 96, 110, 130].map((sz) => (
+                <option key={sz} value={sz}>
+                  {sz}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Linha com Alinhamento, Botão Negrito e Itálico */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "4px" }}>
+            {/* Alinhamento de Texto */}
+            <div style={{ display: "flex", gap: "3px" }}>
+              <button
+                type="button"
+                onClick={() => updateCaptionStyle({ textAlign: "left" })}
+                style={{
+                  background: currentTextAlign === "left" ? "#f4f4f5" : "#ffffff",
+                  border: "1.5px solid #e4e4e7",
+                  borderRadius: "6px",
+                  padding: "5px 7px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+                title="Esquerda"
+              >
+                ≡
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCaptionStyle({ textAlign: "center" })}
+                style={{
+                  background: currentTextAlign === "center" ? "#f4f4f5" : "#ffffff",
+                  border: "1.5px solid #e4e4e7",
+                  borderRadius: "6px",
+                  padding: "5px 7px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+                title="Centralizado"
+              >
+                ≣
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCaptionStyle({ textAlign: "right" })}
+                style={{
+                  background: currentTextAlign === "right" ? "#f4f4f5" : "#ffffff",
+                  border: "1.5px solid #e4e4e7",
+                  borderRadius: "6px",
+                  padding: "5px 7px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+                title="Direita"
+              >
+                ≡
+              </button>
+            </div>
+
+            {/* Alternadores B (Negrito) e I (Itálico) */}
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button
+                type="button"
+                onClick={() =>
+                  updateCaptionStyle({
+                    fontWeight: currentFontWeight === "bold" || currentFontWeight === "900" ? "normal" : "bold",
+                  })
+                }
+                style={{
+                  background: currentFontWeight === "bold" || currentFontWeight === "900" ? "#e4e4e7" : "#ffffff",
+                  border: "1.5px solid #e4e4e7",
+                  borderRadius: "6px",
+                  width: "32px",
+                  height: "30px",
+                  cursor: "pointer",
+                  fontWeight: "900",
+                  fontSize: "14px",
+                  color: "#18181b",
+                }}
+                title="Negrito"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  updateCaptionStyle({
+                    fontStyle: currentFontStyle === "italic" ? "normal" : "italic",
+                  })
+                }
+                style={{
+                  background: currentFontStyle === "italic" ? "#e4e4e7" : "#ffffff",
+                  border: "1.5px solid #e4e4e7",
+                  borderRadius: "6px",
+                  width: "32px",
+                  height: "30px",
+                  cursor: "pointer",
+                  fontStyle: "italic",
+                  fontSize: "14px",
+                  color: "#18181b",
+                }}
+                title="Itálico"
+              >
+                I
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ==========================================
 // 3. ORQUESTRADOR DE ITENS DE SEQUÊNCIA
 // ==========================================
@@ -492,113 +1045,85 @@ text: (item, options) => {
   },
   // RENDERIZAÇÃO DA LEGENDA DINÂMICA INTEGRADA AO MOVEABLE
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 caption: (item, options) => {
-  const { fps = 30 } = options;
-  const { details = {} } = item;
-  const { from, durationInFrames } = calculateFrames(item.display, fps);
+    const { fps = 30, zIndex } = options;
+    const { details = {} } = item;
+    const { from, durationInFrames } = calculateFrames(item.display, fps);
 
-  const playbackRate = item.playbackRate || details.playbackRate || 1;
-  const frame = useCurrentFrame();
-  
-  // Multiplica o tempo do frame pela velocidade para sincronizar com o vídeo
-  const currentTimeMs = (frame / fps) * 1000 * playbackRate;
-  const totalDurationMs = (durationInFrames / fps) * 1000 * playbackRate;
+    const playbackRate = item.playbackRate || details.playbackRate || 1;
+    const totalDurationMs = (durationInFrames / fps) * 1000 * playbackRate;
 
-  const segments =
-    details.segments && details.segments.length > 0
-      ? details.segments
-      : buildTimedSegments(details.text || "", 0, totalDurationMs);
+    const segments =
+      details.segments && details.segments.length > 0
+        ? details.segments
+        : buildTimedSegments(details.text || "", 0, totalDurationMs);
 
-  let currentSegment = segments.find(
-    (seg) => currentTimeMs >= seg.start && currentTimeMs < seg.end
-  );
+    const activeCol = details.activeColor || "#38bdf8";
+    const normalCol = details.textColor || "#ffffff";
+    const bgCol = details.backgroundColor || "rgba(0, 0, 0, 0.75)";
+    const fSize = details.fontSize || 56;
 
-
-  // Se o vídeo estiver pausado no início ou fim, exibe o primeiro bloco
-// Se o vídeo estiver em silêncio ou fora do tempo da fala, não exibe nada
-  if (!currentSegment) {
-    return null;
-  }
-
-  const activeCol = details.activeColor || "#38bdf8";
-  const normalCol = details.textColor || "#ffffff";
-  const bgCol = details.backgroundColor || "rgba(0, 0, 0, 0.75)";
-  const fSize = details.fontSize || 56;
-
-  return (
-    <Sequence
-      key={item.id}
-      from={from}
-      durationInFrames={durationInFrames}
-      style={{
-        zIndex: 9999, // FORÇA A LEGENDA A FICAR ACIMA DO VÍDEO E DO THREE.JS
-        pointerEvents: "none",
-      }}
-    >
-      <div
-        data-track-item="transition-element"
-        className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
+    return (
+      <Sequence
+        key={item.id}
+        from={from}
+        durationInFrames={durationInFrames}
         style={{
-          position: "absolute",
-          left: details.left || 0,
-          top: details.top || 0,
-          width: details.width || 900,
-          height: details.height || 160,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          pointerEvents: "auto",
-          cursor: "move",
+          zIndex: zIndex || 9999,
+          pointerEvents: "none",
         }}
       >
-        {currentSegment && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "14px",
-              padding: "12px 28px",
-              backgroundColor: bgCol,
-              borderRadius: "16px",
-              border: bgCol !== "transparent" ? "2px solid rgba(255, 255, 255, 0.2)" : "none",
-              boxShadow: bgCol !== "transparent" ? "0 10px 35px rgba(0,0,0,0.85)" : "none",
-            }}
-          >
-            {currentSegment.words.map((w, idx) => {
-              const isWordActive =
-                currentTimeMs >= w.start && currentTimeMs < w.end;
+        <CaptionRenderer
+          item={item}
+          fps={fps}
+          playbackRate={playbackRate}
+          segments={segments}
+          activeCol={activeCol}
+          normalCol={normalCol}
+          bgCol={bgCol}
+          fSize={fSize}
+          details={details}
+        />
+      </Sequence>
+    );
+  },
 
-              return (
-                <span
-                  key={idx}
-                  style={{
-                    fontFamily: details.fontFamily || "Impact, sans-serif",
-                    fontSize: `${fSize}px`,
-                    fontWeight: "900",
-                    letterSpacing: "2px",
-                    textTransform: "uppercase",
-                    color: isWordActive ? activeCol : normalCol,
-                    transform: isWordActive ? "scale(1.15)" : "scale(1)",
-                    transition: "transform 0.05s ease, color 0.05s ease",
-                    textShadow: isWordActive
-                      ? `0 0 22px ${activeCol}, 3px 3px 0 #000`
-                      : "3px 3px 0 #000",
-                    display: "inline-block",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {w.word}
-                </span>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </Sequence>
-  );
-},
+
+
+
+
+
+
+
 
 image: (item, options) => {
     const { fps = 30, zIndex } = options;
