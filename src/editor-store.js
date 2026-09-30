@@ -341,13 +341,14 @@ export const useDataState = create((set) => ({
   setCompactFonts: (compactFonts) => set({ compactFonts }),
 }));
 
+// editor-store.js (linha 270)
 const useStore = create((set) => ({
   size: {
     width: 1920,
     height: 1080,
   },
   timeline: null,
-  duration: 1000,
+  duration: 0, // Ajuste de 1000 para 0
   fps: 30,
   scale: {
     index: 7,

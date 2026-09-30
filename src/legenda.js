@@ -217,12 +217,42 @@ function audioBufferToWavBlob(buffer) {
 
   return new Blob([out.buffer], { type: "audio/wav" });
 }
-async function extractAudioBlobFromUrl(mediaUrl) {
+
+
+async function extractAudioBlobFromUrl(mediaUrl, trimFromMs = 0, trimToMs = null) {
   const response = await fetch(mediaUrl);
   if (!response.ok) {
     throw new Error(`Falha ao obter mídia (${response.statusText})`);
   }
-  return await response.blob();
+  const arrayBuffer = await response.arrayBuffer();
+  
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const decodedAudio = await audioCtx.decodeAudioData(arrayBuffer);
+  
+  const sampleRate = decodedAudio.sampleRate;
+  const startSec = Math.max(0, trimFromMs / 1000);
+  const endSec = trimToMs ? Math.min(decodedAudio.duration, trimToMs / 1000) : decodedAudio.duration;
+  
+  const startOffset = Math.floor(startSec * sampleRate);
+  const endOffset = Math.floor(endSec * sampleRate);
+  const frameCount = Math.max(1, endOffset - startOffset);
+  
+  const trimmedBuffer = audioCtx.createBuffer(
+    decodedAudio.numberOfChannels,
+    frameCount,
+    sampleRate
+  );
+  
+  for (let channel = 0; channel < decodedAudio.numberOfChannels; channel++) {
+    const channelData = decodedAudio.getChannelData(channel);
+    const trimmedData = trimmedBuffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      trimmedData[i] = channelData[startOffset + i];
+    }
+  }
+  
+  audioCtx.close();
+  return audioBufferToWavBlob(trimmedBuffer);
 }
 
 // ==========================================
@@ -649,17 +679,19 @@ textarea?.addEventListener("input", (e) => {
       btnAi.style.opacity = "0.7";
       btnAi.style.cursor = "wait";
       btnAi.style.backgroundColor = "#1e293b";
-      btnAi.innerText = "⏳ Extraindo áudio...";
-
-      if (transcribeStatus) {
+      btnAi.innerText = " Extraindo áudio...";
+if (transcribeStatus) {
         transcribeStatus.style.display = "block";
         transcribeStatus.style.color = "#38bdf8";
         transcribeStatus.innerText = "Processando com o Whisper... aguarde.";
       }
 
-      const mediaBlob = await extractAudioBlobFromUrl(mediaItem.details.src);
+      // NOVO CÓDIGO AQUI:
+      const trimFrom = mediaItem.trim?.from ?? 0;
+      const trimTo = mediaItem.trim?.to ?? null;
+      const mediaBlob = await extractAudioBlobFromUrl(mediaItem.details.src, trimFrom, trimTo);
 
-      btnAi.innerText = "⏳ Transcrevendo...";
+      btnAi.innerText = " Transcrevendo...";
 
       const formData = new FormData();
       formData.append("audio", mediaBlob, "media.mp4");
