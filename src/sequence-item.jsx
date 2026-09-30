@@ -411,10 +411,85 @@ const getAnimations = (animations) => {
 };
 
 export const SequenceItem = {
-  text: (item, options) => {
-    // ... manter o método text existente exatamente como está
-  },
+text: (item, options) => {
+    const { fps = 30, zIndex } = options;
+    const { details = {}, animations } = item;
+    const { animationIn, animationOut } = getAnimations(animations);
+    const playbackRate = item.playbackRate || 1;
+    const { from, durationInFrames } = calculateFrames(
+      {
+        from: (item.display?.from || 0) / playbackRate,
+        to: (item.display?.to || 5000) / playbackRate,
+      },
+      fps
+    );
 
+    const textStyles = calculateTextStyles(details);
+
+    return (
+      <Sequence
+        key={item.id}
+        from={from}
+        durationInFrames={durationInFrames}
+        style={{ pointerEvents: "none", zIndex }}
+      >
+        <div
+          data-track-item="transition-element"
+          className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
+          style={{
+            position: "absolute",
+            left: details.left ?? 0,
+            top: details.top ?? 0,
+            width: details.width ?? 500,
+            height: details.height ?? 120,
+            pointerEvents: "auto",
+            cursor: "move",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: details.textAlign || "center",
+            backgroundColor: details.backgroundColor || "transparent",
+            borderRadius: details.borderRadius || "0px",
+            padding: details.padding || "0px",
+            border: details.borderWidth ? `${details.borderWidth}px solid ${details.borderColor}` : "none",
+            boxShadow: details.boxShadow
+              ? `${details.boxShadow.x}px ${details.boxShadow.y}px ${details.boxShadow.blur}px ${details.boxShadow.color}`
+              : "none",
+          }}
+        >
+          <Animated
+            style={{ width: "100%", height: "100%", position: "relative" }}
+            animationIn={animationIn}
+            animationOut={animationOut}
+            durationInFrames={durationInFrames}
+          >
+            <div
+              style={{
+                ...textStyles,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: details.textAlign || "center",
+                color: details.color || "#ffffff",
+                fontSize: `${details.fontSize || 70}px`,
+                fontWeight: details.fontWeight || "800",
+                fontFamily: details.fontFamily || "sans-serif",
+                textShadow: details.boxShadow
+                  ? `${details.boxShadow.x}px ${details.boxShadow.y}px ${details.boxShadow.blur}px ${details.boxShadow.color}`
+                  : "none",
+                WebkitTextStroke: details.borderWidth
+                  ? `${details.borderWidth}px ${details.borderColor}`
+                  : "none",
+                userSelect: "none",
+              }}
+            >
+              {details.text || item.text || item.name || ""}
+            </div>
+          </Animated>
+        </div>
+      </Sequence>
+    );
+  },
   // RENDERIZAÇÃO DA LEGENDA DINÂMICA INTEGRADA AO MOVEABLE
 
 caption: (item, options) => {
@@ -525,10 +600,79 @@ caption: (item, options) => {
   );
 },
 
+image: (item, options) => {
+    const { fps = 30, zIndex } = options;
+    const { details = {}, animations } = item;
+    const { animationIn, animationOut } = getAnimations(animations);
+    const playbackRate = item.playbackRate || 1;
+    const { from, durationInFrames } = calculateFrames(
+      {
+        from: (item.display?.from || 0) / playbackRate,
+        to: (item.display?.to || 5000) / playbackRate,
+      },
+      fps
+    );
 
-  image: (item, options) => {
-    // ... manter o image existente
+    const hasCrop = details.crop && details.crop.width > 0 && details.crop.height > 0;
+    const crop = hasCrop ? details.crop : { x: 0, y: 0, width: details.width, height: details.height };
+    const containerW = hasCrop ? crop.width : details.width || "100%";
+    const containerH = hasCrop ? crop.height : details.height || "auto";
+    const containerStyles = calculateContainerStyles(details, crop);
+
+    return (
+      <Sequence
+        key={item.id}
+        from={from}
+        durationInFrames={durationInFrames}
+        style={{ pointerEvents: "none", zIndex }}
+      >
+        <div
+          data-track-item="transition-element"
+          className={`designcombo-scene-item id-${item.id} designcombo-scene-item-type-${item.type}`}
+          style={{
+            ...containerStyles,
+            position: "absolute",
+            width: containerW,
+            height: containerH,
+            overflow: "hidden",
+            pointerEvents: "auto",
+            cursor: "pointer",
+          }}
+        >
+          <Animated
+            style={{ width: "100%", height: "100%", position: "relative" }}
+            animationIn={animationIn}
+            animationOut={animationOut}
+            durationInFrames={durationInFrames}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: -crop.y,
+                left: -crop.x,
+                width: details.width,
+                height: details.height,
+                pointerEvents: "none",
+              }}
+            >
+              <Img
+                src={details.src}
+                style={{
+                  width: details.width,
+                  height: details.height,
+                  opacity: (details.opacity ?? 100) / 100,
+                  objectFit: "fill",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          </Animated>
+        </div>
+      </Sequence>
+    );
   },
+
+
   video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
 audio: (item, options) => {
     const { fps = 30 } = options;
