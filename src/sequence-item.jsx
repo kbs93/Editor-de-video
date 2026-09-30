@@ -420,8 +420,6 @@ function CaptionRenderer({
   const { activeIds, size } = useStore();
   const isSelected = activeIds.includes(item.id);
 
-  const [showFontMenu, setShowFontMenu] = useState(false);
-
   // Escala para compensar o zoom do canvas e manter a toolbar nítida
   const toolbarScale = Math.max(1.8, (size?.width || 1920) / 900);
 
@@ -431,36 +429,7 @@ function CaptionRenderer({
   );
 
   // Atualiza propriedades de texto da legenda ativa
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const updateCaptionStyle = (newDetails) => {
+  const updateCaptionStyle = (newDetails) => {
     const state = useStore.getState();
     const currentItem = state.trackItemsMap[item.id] || {};
     const updatedDetails = {
@@ -496,8 +465,6 @@ const updateCaptionStyle = (newDetails) => {
       state.playerRef.current.seekTo(currentFrame);
     }
   };
-
-  
 
   const currentFontFamily = details.fontFamily || "Poppins";
   const currentFontWeight = details.fontWeight || "bold";
@@ -538,8 +505,11 @@ const updateCaptionStyle = (newDetails) => {
                 justifyContent: currentTextAlign === "left" ? "flex-start" : currentTextAlign === "right" ? "flex-end" : "center",
                 alignItems: "center",
                 gap: "10px",
-                width: "100%",
-                padding: "2px 8px",
+                width: "max-content",
+                maxWidth: "100%",
+                padding: details.backgroundColor && details.backgroundColor !== "transparent" ? "8px 18px" : "2px 8px",
+                backgroundColor: details.backgroundColor || "transparent",
+                borderRadius: details.backgroundColor && details.backgroundColor !== "transparent" ? "10px" : "0px",
                 boxSizing: "border-box",
                 pointerEvents: "none",
               }}
@@ -581,6 +551,9 @@ const updateCaptionStyle = (newDetails) => {
         </div>
       </div>
 
+
+
+
       {/* 2. BARRA FLUTUANTE COM O LÁPIS E O T */}
       {isSelected && (
         <div
@@ -606,50 +579,7 @@ const updateCaptionStyle = (newDetails) => {
             boxSizing: "border-box",
           }}
         >
-          {/* Botão Lápis: Abre/Fecha a caixinha flutuante de Fonte */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowFontMenu((prev) => !prev);
-            }}
-            title="Formatar Fonte"
-            style={{
-              border: "none",
-              background: showFontMenu ? "#f4f4f5" : "transparent",
-              cursor: "pointer",
-              padding: "4px 8px",
-              margin: "0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#18181b",
-              borderRadius: "6px",
-              transition: "background 0.15s ease",
-            }}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-            </svg>
-          </button>
-
-          {/* Divisor Vertical */}
-          <div
-            style={{
-              width: "1.5px",
-              height: "22px",
-              backgroundColor: "#e4e4e7",
-            }}
-          />
+   
 
           {/* Botão T: Abre a barra de Estilos de Texto */}
           <button
@@ -684,274 +614,9 @@ const updateCaptionStyle = (newDetails) => {
           </button>
         </div>
       )}
-
-      {/* 3. MENU FLUTUANTE DE FONTE (Exatamente igual à Imagem de Referência) */}
-
-
-
-
-
-
-
-
-
-
-{isSelected && showFontMenu && (
-        <div
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            position: "absolute",
-            top: `-${Math.round(220 * toolbarScale)}px`,
-            left: "50%",
-            transform: `translateX(-50%) scale(${toolbarScale})`,
-            transformOrigin: "bottom center",
-            backgroundColor: "#ffffff",
-            borderRadius: "10px",
-            padding: "14px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            zIndex: 1000000,
-            pointerEvents: "auto",
-            width: "250px",
-            boxSizing: "border-box",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            fontFamily: "sans-serif",
-            color: "#18181b",
-          }}
-        >
-
-
-
-
-
-          {/* Cabeçalho do Menu */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "14px", fontWeight: "700", color: "#18181b" }}>Fonte</span>
-            <button
-              type="button"
-              onClick={() => setShowFontMenu(false)}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "12px",
-                color: "#71717a",
-                padding: "2px",
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Seletor de Família de Fonte (Poppins, Roboto, Impact...) */}
-          <select
-            value={currentFontFamily}
-            onChange={(e) => updateCaptionStyle({ fontFamily: e.target.value })}
-            style={{
-              width: "100%",
-              padding: "7px 10px",
-              borderRadius: "6px",
-              border: "1.5px solid #e4e4e7",
-              backgroundColor: "#ffffff",
-              fontSize: "13px",
-              color: "#18181b",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          >
-            <option value="Poppins">Poppins</option>
-            <option value="Roboto">Roboto</option>
-            <option value="Impact">Impact</option>
-            <option value="Arial">Arial</option>
-            <option value="Montserrat">Montserrat</option>
-            <option value="Inter">Inter</option>
-          </select>
-
-          {/* Linha de Peso (Negrito) e Tamanho */}
-          <div style={{ display: "flex", gap: "8px", width: "100%" }}>
-            <select
-              value={currentFontWeight}
-              onChange={(e) => updateCaptionStyle({ fontWeight: e.target.value })}
-              style={{
-                flex: 1,
-                padding: "7px 10px",
-                borderRadius: "6px",
-                border: "1.5px solid #e4e4e7",
-                backgroundColor: "#ffffff",
-                fontSize: "13px",
-                color: "#18181b",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            >
-              <option value="normal">Normal</option>
-              <option value="600">Médio</option>
-              <option value="bold">Negrito</option>
-              <option value="900">Extra Negrito</option>
-            </select>
-
-        <select
-              value={Number(currentFontSize)}
-              onChange={(e) => {
-                e.stopPropagation();
-                updateCaptionStyle({ fontSize: Number(e.target.value) });
-              }}
-              style={{
-                width: "80px",
-                padding: "7px 10px",
-                borderRadius: "6px",
-                border: "1.5px solid #e4e4e7",
-                backgroundColor: "#ffffff",
-                fontSize: "13px",
-                color: "#18181b",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            >
-              {[24, 32, 40, 48, 54, 60, 72, 84, 96, 110, 130].map((sz) => (
-                <option key={sz} value={sz}>
-                  {sz}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Linha com Alinhamento, Botão Negrito e Itálico */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "4px" }}>
-            {/* Alinhamento de Texto */}
-            <div style={{ display: "flex", gap: "3px" }}>
-              <button
-                type="button"
-                onClick={() => updateCaptionStyle({ textAlign: "left" })}
-                style={{
-                  background: currentTextAlign === "left" ? "#f4f4f5" : "#ffffff",
-                  border: "1.5px solid #e4e4e7",
-                  borderRadius: "6px",
-                  padding: "5px 7px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-                title="Esquerda"
-              >
-                ≡
-              </button>
-              <button
-                type="button"
-                onClick={() => updateCaptionStyle({ textAlign: "center" })}
-                style={{
-                  background: currentTextAlign === "center" ? "#f4f4f5" : "#ffffff",
-                  border: "1.5px solid #e4e4e7",
-                  borderRadius: "6px",
-                  padding: "5px 7px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-                title="Centralizado"
-              >
-                ≣
-              </button>
-              <button
-                type="button"
-                onClick={() => updateCaptionStyle({ textAlign: "right" })}
-                style={{
-                  background: currentTextAlign === "right" ? "#f4f4f5" : "#ffffff",
-                  border: "1.5px solid #e4e4e7",
-                  borderRadius: "6px",
-                  padding: "5px 7px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-                title="Direita"
-              >
-                ≡
-              </button>
-            </div>
-
-            {/* Alternadores B (Negrito) e I (Itálico) */}
-            <div style={{ display: "flex", gap: "6px" }}>
-              <button
-                type="button"
-                onClick={() =>
-                  updateCaptionStyle({
-                    fontWeight: currentFontWeight === "bold" || currentFontWeight === "900" ? "normal" : "bold",
-                  })
-                }
-                style={{
-                  background: currentFontWeight === "bold" || currentFontWeight === "900" ? "#e4e4e7" : "#ffffff",
-                  border: "1.5px solid #e4e4e7",
-                  borderRadius: "6px",
-                  width: "32px",
-                  height: "30px",
-                  cursor: "pointer",
-                  fontWeight: "900",
-                  fontSize: "14px",
-                  color: "#18181b",
-                }}
-                title="Negrito"
-              >
-                B
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  updateCaptionStyle({
-                    fontStyle: currentFontStyle === "italic" ? "normal" : "italic",
-                  })
-                }
-                style={{
-                  background: currentFontStyle === "italic" ? "#e4e4e7" : "#ffffff",
-                  border: "1.5px solid #e4e4e7",
-                  borderRadius: "6px",
-                  width: "32px",
-                  height: "30px",
-                  cursor: "pointer",
-                  fontStyle: "italic",
-                  fontSize: "14px",
-                  color: "#18181b",
-                }}
-                title="Itálico"
-              >
-                I
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ==========================================
 // 3. ORQUESTRADOR DE ITENS DE SEQUÊNCIA
@@ -964,7 +629,7 @@ const getAnimations = (animations) => {
 };
 
 export const SequenceItem = {
-text: (item, options) => {
+  text: (item, options) => {
     const { fps = 30, zIndex } = options;
     const { details = {}, animations } = item;
     const { animationIn, animationOut } = getAnimations(animations);
@@ -1043,38 +708,8 @@ text: (item, options) => {
       </Sequence>
     );
   },
-  // RENDERIZAÇÃO DA LEGENDA DINÂMICA INTEGRADA AO MOVEABLE
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-caption: (item, options) => {
+  caption: (item, options) => {
     const { fps = 30, zIndex } = options;
     const { details = {} } = item;
     const { from, durationInFrames } = calculateFrames(item.display, fps);
@@ -1117,15 +752,7 @@ caption: (item, options) => {
     );
   },
 
-
-
-
-
-
-
-
-
-image: (item, options) => {
+  image: (item, options) => {
     const { fps = 30, zIndex } = options;
     const { details = {}, animations } = item;
     const { animationIn, animationOut } = getAnimations(animations);
@@ -1197,9 +824,9 @@ image: (item, options) => {
     );
   },
 
-
   video: (item, options) => <VideoWithThreeEffects key={item.id} item={item} options={options} />,
-audio: (item, options) => {
+
+  audio: (item, options) => {
     const { fps = 30 } = options;
     const { details = {}, trim = {}, display = {} } = item;
     const playbackRate = item.playbackRate || details.playbackRate || 1;
@@ -1233,7 +860,5 @@ audio: (item, options) => {
     );
   },
 };
-
-
 
 export default SequenceItem;

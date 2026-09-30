@@ -60,6 +60,7 @@ export function groupWhisperWordsIntoSegments(whisperWords, maxWordsPerSegment =
   }
   return segments;
 }
+
 export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, totalToMs) {
   const userWords = String(rawText || "").trim().split(/\s+/).filter(Boolean);
   if (userWords.length === 0) return [];
@@ -70,7 +71,6 @@ export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, to
   let userWordIndex = 0;
   const updatedSegments = [];
 
-// Achata todas as palavras temporizadas da IA para servir de âncora de tempo pura
   const timeAnchors = [];
   for (const seg of baseSegments) {
     if (Array.isArray(seg.words)) {
@@ -80,16 +80,11 @@ export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, to
     }
   }
 
-
-const wordsPerSegment = 3;
+  const wordsPerSegment = 3;
   const totalUserWords = userWords.length;
   const totalAnchors = timeAnchors.length;
-  const latencyOffsetMs = 80;
 
-
-
-
-for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
+  for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
     const chunk = userWords.slice(i, i + wordsPerSegment);
 
     let segStart, segEnd;
@@ -104,7 +99,6 @@ for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
         Math.max(startAnchorIdx, Math.floor(((i + chunk.length) / totalUserWords) * totalAnchors) - 1)
       );
 
-      // Garante que o bloco começa no início exato da primeira palavra daquele bloco
       segStart = Math.max(totalFromMs, timeAnchors[startAnchorIdx].start);
       segEnd = Math.max(segStart + chunk.length * 250, timeAnchors[endAnchorIdx].end);
     } else {
@@ -120,7 +114,6 @@ for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
       const globalIdx = i + idx;
       let wStart, wEnd;
 
-      // Se temos as âncoras reais de som para cada palavra específica, respeita o carimbo individual
       if (totalAnchors > 0 && globalIdx < totalAnchors) {
         wStart = Math.max(totalFromMs, timeAnchors[globalIdx].start);
         wEnd = Math.max(wStart + 150, timeAnchors[globalIdx].end);
@@ -136,26 +129,12 @@ for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
       };
     });
 
-    // O bloco pai se ajusta do início da primeira palavra até o fim da última
     updatedSegments.push({
       start: timedWords[0].start,
       end: timedWords[timedWords.length - 1].end,
       words: timedWords,
     });
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   userWordIndex = totalUserWords;
 
@@ -169,10 +148,6 @@ for (let i = 0; i < totalUserWords; i += wordsPerSegment) {
 
   return updatedSegments;
 }
-
-
-
-
 
 // ==========================================
 // 2. EXTRAÇÃO E CONVERSÃO DE ÁUDIO NO BROWSER
@@ -218,7 +193,6 @@ function audioBufferToWavBlob(buffer) {
   return new Blob([out.buffer], { type: "audio/wav" });
 }
 
-
 async function extractAudioBlobFromUrl(mediaUrl, trimFromMs = 0, trimToMs = null) {
   const response = await fetch(mediaUrl);
   if (!response.ok) {
@@ -256,7 +230,7 @@ async function extractAudioBlobFromUrl(mediaUrl, trimFromMs = 0, trimToMs = null
 }
 
 // ==========================================
-// 3. ESTADO E CONTROLOS DO OVERLAY
+// 3. ESTADO E CONTROLOS
 // ==========================================
 let activeCaptionId = null;
 let rawCaptionText = "";
@@ -270,146 +244,15 @@ let captionConfig = {
   textColor: "#ffffff",
   bgColor: "#000000",
   hasBg: true,
+  fontFamily: "Poppins",
+  fontWeight: "bold",
   fontSize: 54,
+  fontStyle: "normal",
+  textAlign: "center",
   left: 50,
   top: 72,
 };
 
-function ensureOverlayElement() {
-  if (captionOverlayElement && document.body.contains(captionOverlayElement)) {
-    return captionOverlayElement;
-  }
-
-  const screenContainer =
-    document.querySelector(".__remotion-player") ||
-    document.querySelector("#designcombo-scene-item") ||
-    document.querySelector(".scene-container") ||
-    document.querySelector("div[style*='position: relative'] > div") ||
-    document.body;
-
-  let el = document.getElementById("dynamic-caption-overlay");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "dynamic-caption-overlay";
-    el.style.position = "absolute";
-    el.style.left = `${captionConfig.left}%`;
-    el.style.top = `${captionConfig.top}%`;
-    el.style.transform = "translate(-50%, -50%)";
-    el.style.zIndex = "99999";
-    el.style.cursor = "move";
-    el.style.userSelect = "none";
-    el.style.display = "flex";
-    el.style.justifyContent = "center";
-    el.style.alignItems = "center";
-    el.style.border = "1.5px dashed rgba(56, 189, 248, 0.8)";
-    el.style.borderRadius = "12px";
-    el.style.padding = "4px";
-    el.style.boxSizing = "border-box";
-    el.title = "Arraste pelo centro ou use os pontos nos cantos para redimensionar";
-
-    const handles = ["nw", "ne", "sw", "se"];
-    handles.forEach((pos) => {
-      const handle = document.createElement("div");
-      handle.className = `caption-resize-handle handle-${pos}`;
-      handle.style.position = "absolute";
-      handle.style.width = "10px";
-      handle.style.height = "10px";
-      handle.style.backgroundColor = "#ffffff";
-      handle.style.border = "2px solid #38bdf8";
-      handle.style.borderRadius = "2px";
-      handle.style.boxShadow = "0 1px 4px rgba(0,0,0,0.5)";
-      handle.style.zIndex = "100000";
-
-      if (pos.includes("n")) handle.style.top = "-6px";
-      if (pos.includes("s")) handle.style.bottom = "-6px";
-      if (pos.includes("w")) handle.style.left = "-6px";
-      if (pos.includes("e")) handle.style.right = "-6px";
-
-      handle.style.cursor = pos === "nw" || pos === "se" ? "nwse-resize" : "nesw-resize";
-
-      handle.addEventListener("mousedown", (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        const startX = e.clientX;
-        const startFontSize = captionConfig.fontSize;
-
-        function onResizeMove(moveEvent) {
-          const dx = moveEvent.clientX - startX;
-          const factor = pos.includes("e") ? dx : -dx;
-          const newSize = Math.max(24, Math.min(120, startFontSize + factor * 0.4));
-          captionConfig.fontSize = Math.round(newSize);
-
-          const fontInput = document.querySelector("#picker-font-size");
-          if (fontInput) fontInput.value = captionConfig.fontSize;
-        }
-
-        function onResizeUp() {
-          window.removeEventListener("mousemove", onResizeMove);
-          window.removeEventListener("mouseup", onResizeUp);
-        }
-
-        window.addEventListener("mousemove", onResizeMove);
-        window.addEventListener("mouseup", onResizeUp);
-      });
-
-      el.appendChild(handle);
-    });
-
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
-
-    el.addEventListener("mousedown", (e) => {
-      if (e.target.classList.contains("caption-resize-handle")) return;
-
-      e.stopPropagation();
-      e.preventDefault();
-
-      isDragging = true;
-      el.style.cursor = "grabbing";
-      startX = e.clientX;
-      startY = e.clientY;
-
-      const parentRect = el.parentElement.getBoundingClientRect();
-      const rect = el.getBoundingClientRect();
-
-      initialLeft = rect.left - parentRect.left + rect.width / 2;
-      initialTop = rect.top - parentRect.top + rect.height / 2;
-
-      function onMouseMove(moveEvent) {
-        if (!isDragging) return;
-        const dx = moveEvent.clientX - startX;
-        const dy = moveEvent.clientY - startY;
-
-        captionConfig.left = ((initialLeft + dx) / parentRect.width) * 100;
-        captionConfig.top = ((initialTop + dy) / parentRect.height) * 100;
-
-        el.style.left = `${captionConfig.left}%`;
-        el.style.top = `${captionConfig.top}%`;
-      }
-
-      function onMouseUp() {
-        isDragging = false;
-        el.style.cursor = "move";
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-      }
-
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-    });
-
-    screenContainer.appendChild(el);
-  }
-
-  captionOverlayElement = el;
-  return captionOverlayElement;
-}
-
-// ==========================================
-// 4. MOTOR DE SINCRONIZAÇÃO
-// ==========================================
 function startCaptionLoop() {
   if (animFrameId) {
     cancelAnimationFrame(animFrameId);
@@ -422,43 +265,77 @@ function startCaptionLoop() {
   captionOverlayElement = null;
 }
 
+// Sincroniza em tempo real com a legenda atualmente selecionada no player
+function updateLiveCaption(propertyPatch) {
+  const state = useStore.getState();
+  const targetId = activeCaptionId || (state.activeIds && state.activeIds[0]);
+  if (!targetId) return;
+
+  const currentItem = state.trackItemsMap?.[targetId];
+  if (!currentItem || currentItem.type !== "caption") return;
+
+  const updatedDetails = {
+    ...(currentItem.details || {}),
+    ...propertyPatch,
+  };
+
+  useStore.setState((prev) => ({
+    trackItemsMap: {
+      ...prev.trackItemsMap,
+      [targetId]: {
+        ...currentItem,
+        details: updatedDetails,
+      },
+    },
+    trackItemDetailsMap: {
+      ...prev.trackItemDetailsMap,
+      [targetId]: updatedDetails,
+    },
+  }));
+
+  if (state.playerRef?.current) {
+    const currentFrame = state.playerRef.current.getCurrentFrame();
+    state.playerRef.current.seekTo(currentFrame);
+  }
+}
 
 
-
-
-
+// Carrega as fontes do Google Fonts para renderização visual idêntica ao Google Docs / Word
+if (!document.getElementById("google-fonts-link")) {
+  const link = document.createElement("link");
+  link.id = "google-fonts-link";
+  link.rel = "stylesheet";
+  link.href =
+    "https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@700&family=Lobster&family=Montserrat:wght@700&family=Open+Sans:wght@600&family=Oswald:wght@700&family=Pacifico&family=Parisienne&family=Playfair+Display:ital,wght@0,700;1,700&family=Poiret+One&family=Poppins:wght@700&family=Roboto:wght@700&family=Roboto+Mono:wght@600&display=swap";
+  document.head.appendChild(link);
+}
 
 
 
 
 // ==========================================
-// 5. PAINEL LATERAL COM BOTÃO WHISPER
-// ==========================================
-// ==========================================
-// 5. PAINEL GAVETA SOBREPOSTA (DRAWER COMPLETO)
+// 4. PAINEL GAVETA SOBREPOSTA COM NOVO DESIGN DE FONTE
 // ==========================================
 export function openCaptionModal(container, onClose) {
   if (!container) return;
 
   container.innerHTML = `
-    <div style="width: 100%; height: 100%; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background-color: #141416; gap: 10px; overflow: hidden;">
+    <div style="width: 100%; height: 100%; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background-color: #141416; gap: 8px; overflow-y: auto; [scrollbar-width:thin] [scrollbar-color:#3f3f46_transparent]">
       
- 
-
       <!-- Botão Transcrição IA -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
         <button 
           type="button" 
           id="btn-ai-transcribe" 
-          style="width: 100%; background: #1e1e22; border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 600; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;"
+          style="width: 100%; background: #1e1e22; border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 600; font-size: 12px; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;"
         >
          Criar Legenda Dinâmica
         </button>
         <span id="transcribe-status" style="font-size: 11px; color: #a1a1aa; text-align: center; display: none; line-height: 1.2;">Aguarde...</span>
       </div>
 
-<!-- Caixa de Texto Esticada Verticalmente -->
-      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0;">
+      <!-- Caixa de Texto Esticada Verticalmente -->
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 90px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
           <label style="font-size: 11px; color: #a1a1aa; font-weight: 500; font-family: sans-serif;">
             Texto falado no vídeo:
@@ -466,56 +343,108 @@ export function openCaptionModal(container, onClose) {
           <button 
             type="button" 
             id="btn-caption-clear" 
-            style="background: #982828; border-radius: 5px; color: #f0ebeb; font-size: 13px; cursor: pointer; padding: 2px 4px; font-weight: 600;" 
+            style="background: #982828; border-radius: 5px; color: #f0ebeb; font-size: 12px; cursor: pointer; padding: 2px 6px; font-weight: 600; border: none;" 
             title="Limpar texto"
           >
             Limpar
           </button>
         </div>
-        <textarea id="caption-input-text" placeholder="Para criar uma legenda Basta clicar no botao Criar Legenda Dinâmica, o texto aparecer aqui" style="width: 100%; flex: 1; height: 100%; background-color: #18181b; border: 1.5px solid #27272a; border-radius: 8px; padding: 10px; font-size: 12px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.45; scrollbar-width: thin; scrollbar-color: #52525b transparent;">${lastInputText}</textarea>
+        <textarea id="caption-input-text" placeholder="Para criar uma legenda Basta clicar no botao Criar Legenda Dinâmica, o texto aparecer aqui" style="width: 100%; flex: 1; min-height: 80px; background-color: #18181b; border: 1.5px solid #27272a; border-radius: 8px; padding: 8px; font-size: 12px; color: #f4f4f5; outline: none; resize: none; font-family: sans-serif; box-sizing: border-box; line-height: 1.4; scrollbar-width: thin; scrollbar-color: #52525b transparent;">${lastInputText}</textarea>
       </div>
 
-      <!-- Bloco de Aparência da Legenda -->
-      <div style="background: #18181b; padding: 10px 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #27272a; flex-shrink: 0;">
-        <span style="font-size: 10px; font-weight: 700; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">APARÊNCIA DA LEGENDA</span>
+      <!-- Bloco de Aparência da Legenda (Fundo Preto com Controles de Fonte Incorporados) -->
+      <div style="background: #09090b; padding: 10px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; border: 1.5px solid #27272a; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 10px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px;">APARÊNCIA DA LEGENDA</span>
+          <span style="font-size: 10px; color: #71717a;">Fonte & Cores</span>
+        </div>
+
+        <!-- Seletor de Família da Fonte -->
+      <!-- Seletor de Família da Fonte Padrão Google Docs / Word com Preview Visual -->
+        <select id="modal-font-family" style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; font-size: 13px; color: #f4f4f5; outline: none; cursor: pointer; max-height: 260px;">
+          <option value="Arial" style="font-family: Arial, sans-serif;" ${captionConfig.fontFamily === "Arial" ? "selected" : ""}>Arial</option>
+          <option value="Poppins" style="font-family: 'Poppins', sans-serif;" ${captionConfig.fontFamily === "Poppins" ? "selected" : ""}>Poppins</option>
+          <option value="Roboto" style="font-family: 'Roboto', sans-serif;" ${captionConfig.fontFamily === "Roboto" ? "selected" : ""}>Roboto</option>
+          <option value="Impact" style="font-family: Impact, sans-serif;" ${captionConfig.fontFamily === "Impact" ? "selected" : ""}>Impact</option>
+          <option value="Oswald" style="font-family: 'Oswald', sans-serif;" ${captionConfig.fontFamily === "Oswald" ? "selected" : ""}>Oswald</option>
+          <option value="Open Sans" style="font-family: 'Open Sans', sans-serif;" ${captionConfig.fontFamily === "Open Sans" ? "selected" : ""}>Open Sans</option>
+          <option value="Pacifico" style="font-family: 'Pacifico', cursive;" ${captionConfig.fontFamily === "Pacifico" ? "selected" : ""}>Pacifico</option>
+          <option value="Lobster" style="font-family: 'Lobster', cursive;" ${captionConfig.fontFamily === "Lobster" ? "selected" : ""}>Lobster</option>
+          <option value="Caveat" style="font-family: 'Caveat', cursive;" ${captionConfig.fontFamily === "Caveat" ? "selected" : ""}>Caveat</option>
+          <option value="Comfortaa" style="font-family: 'Comfortaa', cursive;" ${captionConfig.fontFamily === "Comfortaa" ? "selected" : ""}>Comfortaa</option>
+          <option value="Parisienne" style="font-family: 'Parisienne', cursive;" ${captionConfig.fontFamily === "Parisienne" ? "selected" : ""}>Parisienne</option>
+          <option value="Poiret One" style="font-family: 'Poiret One', cursive;" ${captionConfig.fontFamily === "Poiret One" ? "selected" : ""}>Poiret One</option>
+          <option value="Montserrat" style="font-family: 'Montserrat', sans-serif;" ${captionConfig.fontFamily === "Montserrat" ? "selected" : ""}>Montserrat</option>
+          <option value="Playfair Display" style="font-family: 'Playfair Display', serif;" ${captionConfig.fontFamily === "Playfair Display" ? "selected" : ""}>Playfair Display</option>
+          <option value="Roboto Mono" style="font-family: 'Roboto Mono', monospace;" ${captionConfig.fontFamily === "Roboto Mono" ? "selected" : ""}>Roboto Mono</option>
+          <option value="Georgia" style="font-family: Georgia, serif;" ${captionConfig.fontFamily === "Georgia" ? "selected" : ""}>Georgia</option>
+          <option value="Times New Roman" style="font-family: 'Times New Roman', serif;" ${captionConfig.fontFamily === "Times New Roman" ? "selected" : ""}>Times New Roman</option>
+          <option value="Verdana" style="font-family: Verdana, sans-serif;" ${captionConfig.fontFamily === "Verdana" ? "selected" : ""}>Verdana</option>
+        </select>
+
+        <!-- Linha: Peso da Fonte e Tamanho Numérico -->
+        <div style="display: flex; gap: 6px; width: 100%;">
+          <select id="modal-font-weight" style="flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; font-size: 12px; color: #f4f4f5; outline: none; cursor: pointer;">
+            <option value="normal" ${captionConfig.fontWeight === "normal" ? "selected" : ""}>Normal</option>
+            <option value="600" ${captionConfig.fontWeight === "600" ? "selected" : ""}>Médio</option>
+            <option value="bold" ${captionConfig.fontWeight === "bold" ? "selected" : ""}>Negrito</option>
+            <option value="900" ${captionConfig.fontWeight === "900" ? "selected" : ""}>Extra Negrito</option>
+          </select>
+<select id="modal-font-size" style="width: 75px; padding: 6px 8px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; font-size: 12px; color: #f4f4f5; outline: none; cursor: pointer; max-height: 200px;">
+            ${[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 54, 60, 72, 96]
+              .map((sz) => `<option value="${sz}" ${captionConfig.fontSize === sz ? "selected" : ""}>${sz}</option>`)
+              .join("")}
+          </select>
+         
+        </div>
+
+        <!-- Linha: Alinhamento e Botões B e I -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 8px;">
+          <div style="display: flex; gap: 4px;">
+            <button type="button" data-align="left" class="btn-caption-align" style="background: ${captionConfig.textAlign === "left" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Esquerda">≡</button>
+            <button type="button" data-align="center" class="btn-caption-align" style="background: ${captionConfig.textAlign === "center" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Centralizado">≣</button>
+            <button type="button" data-align="right" class="btn-caption-align" style="background: ${captionConfig.textAlign === "right" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Direita">≡</button>
+          </div>
+
+          <div style="display: flex; gap: 5px;">
+            <button type="button" id="btn-modal-bold" style="background: ${captionConfig.fontWeight === "bold" || captionConfig.fontWeight === "900" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; width: 28px; height: 26px; cursor: pointer; font-weight: 900; font-size: 12px; color: #f4f4f5;" title="Negrito">B</button>
+            <button type="button" id="btn-modal-italic" style="background: ${captionConfig.fontStyle === "italic" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; width: 28px; height: 26px; cursor: pointer; font-style: italic; font-size: 12px; color: #f4f4f5;" title="Itálico">I</button>
+          </div>
+        </div>
         
+        <!-- Cores e Fundo -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">(Palavra Ativa):</label>
-          <input type="color" id="picker-active-color" value="${captionConfig.activeColor}" style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px;" />
+          <input type="color" id="picker-active-color" value="${captionConfig.activeColor}" style="cursor: pointer; background: transparent; border: none; width: 26px; height: 26px;" />
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Texto normal:</label>
-          <input type="color" id="picker-text-color" value="${captionConfig.textColor}" style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px;" />
+          <input type="color" id="picker-text-color" value="${captionConfig.textColor}" style="cursor: pointer; background: transparent; border: none; width: 26px; height: 26px;" />
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Cor do Fundo:</label>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <input type="color" id="picker-bg-color" value="${captionConfig.bgColor}" ${!captionConfig.hasBg ? "disabled" : ""} style="cursor: pointer; background: transparent; border: none; width: 28px; height: 28px; opacity: ${captionConfig.hasBg ? '1' : '0.4'};" />
+            <input type="color" id="picker-bg-color" value="${captionConfig.bgColor}" ${!captionConfig.hasBg ? "disabled" : ""} style="cursor: pointer; background: transparent; border: none; width: 26px; height: 26px; opacity: ${captionConfig.hasBg ? '1' : '0.4'};" />
             <label style="font-size: 10px; color: #a1a1aa; display: flex; align-items: center; gap: 4px; cursor: pointer;">
               <input type="checkbox" id="check-no-bg" ${!captionConfig.hasBg ? "checked" : ""} style="accent-color: #8b5cf6;" />
               Sem Fundo
             </label>
           </div>
         </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <label style="font-size: 11px; color: #d4d4d8; font-family: sans-serif;">Tamanho da Fonte:</label>
-          <input type="range" id="picker-font-size" min="30" max="80" value="${captionConfig.fontSize}" style="width: 85px; accent-color: #8b5cf6; cursor: pointer;" />
-        </div>
       </div>
 
       <!-- Base: Botão Aplicar -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
-        <button type="button" id="btn-caption-submit" style="width: 100%; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; font-weight: 700; font-size: 13px; padding: 11px; border-radius: 8px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); transition: transform 0.1s ease;">
+        <button type="button" id="btn-caption-submit" style="width: 100%; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; font-weight: 700; font-size: 12px; padding: 10px; border-radius: 8px; cursor: pointer; border: none; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); transition: transform 0.1s ease;">
         Aplicar Legenda no Vídeo</button>
         <span id="caption-feedback" style="font-size: 11px; color: #4ade80; text-align: center; display: none; font-weight: 500;">Legenda aplicada com sucesso!</span>
       </div>
     </div>
   `;
 
-const btnClose = container.querySelector("#btn-caption-close");
+  const btnClose = container.querySelector("#btn-caption-close");
   const btnSubmit = container.querySelector("#btn-caption-submit");
   const btnClear = container.querySelector("#btn-caption-clear");
   const btnAi = container.querySelector("#btn-ai-transcribe");
@@ -523,30 +452,93 @@ const btnClose = container.querySelector("#btn-caption-close");
   const textarea = container.querySelector("#caption-input-text");
   const feedback = container.querySelector("#caption-feedback");
 
+  const fontSelect = container.querySelector("#modal-font-family");
+  const weightSelect = container.querySelector("#modal-font-weight");
+  const sizeSelect = container.querySelector("#modal-font-size");
+  const alignBtns = container.querySelectorAll(".btn-caption-align");
+  const btnBold = container.querySelector("#btn-modal-bold");
+  const btnItalic = container.querySelector("#btn-modal-italic");
+
   const pickerActive = container.querySelector("#picker-active-color");
   const pickerText = container.querySelector("#picker-text-color");
   const pickerBg = container.querySelector("#picker-bg-color");
   const checkNoBg = container.querySelector("#check-no-bg");
-  const pickerFont = container.querySelector("#picker-font-size");
 
+  // Listeners dos controles de fonte
+  fontSelect?.addEventListener("change", (e) => {
+    captionConfig.fontFamily = e.target.value;
+    updateLiveCaption({ fontFamily: e.target.value });
+  });
+
+  weightSelect?.addEventListener("change", (e) => {
+    captionConfig.fontWeight = e.target.value;
+    updateLiveCaption({ fontWeight: e.target.value });
+    if (btnBold) {
+      const isBold = e.target.value === "bold" || e.target.value === "900";
+      btnBold.style.background = isBold ? "#3f3f46" : "#18181b";
+    }
+  });
+
+  sizeSelect?.addEventListener("change", (e) => {
+    const sz = Number(e.target.value);
+    captionConfig.fontSize = sz;
+    updateLiveCaption({ fontSize: sz });
+  });
+
+  alignBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const align = btn.getAttribute("data-align");
+      captionConfig.textAlign = align;
+      updateLiveCaption({ textAlign: align });
+      alignBtns.forEach((b) => {
+        b.style.background = b.getAttribute("data-align") === align ? "#27272a" : "#18181b";
+      });
+    });
+  });
+
+  btnBold?.addEventListener("click", () => {
+    const isBold = captionConfig.fontWeight === "bold" || captionConfig.fontWeight === "900";
+    captionConfig.fontWeight = isBold ? "normal" : "bold";
+    if (weightSelect) weightSelect.value = captionConfig.fontWeight;
+    btnBold.style.background = !isBold ? "#3f3f46" : "#18181b";
+    updateLiveCaption({ fontWeight: captionConfig.fontWeight });
+  });
+
+  btnItalic?.addEventListener("click", () => {
+    const isItalic = captionConfig.fontStyle === "italic";
+    captionConfig.fontStyle = isItalic ? "normal" : "italic";
+    btnItalic.style.background = !isItalic ? "#3f3f46" : "#18181b";
+    updateLiveCaption({ fontStyle: captionConfig.fontStyle });
+  });
+
+  // Listeners de cores
   pickerActive?.addEventListener("input", (e) => {
     captionConfig.activeColor = e.target.value;
+    updateLiveCaption({ activeColor: e.target.value });
   });
+
   pickerText?.addEventListener("input", (e) => {
     captionConfig.textColor = e.target.value;
+    updateLiveCaption({ textColor: e.target.value });
   });
+
   pickerBg?.addEventListener("input", (e) => {
     captionConfig.bgColor = e.target.value;
+    if (captionConfig.hasBg) {
+      updateLiveCaption({ backgroundColor: e.target.value });
+    }
   });
+
   checkNoBg?.addEventListener("change", (e) => {
     captionConfig.hasBg = !e.target.checked;
     if (pickerBg) {
       pickerBg.style.opacity = captionConfig.hasBg ? "1" : "0.4";
       pickerBg.disabled = !captionConfig.hasBg;
     }
+    updateLiveCaption({ backgroundColor: captionConfig.hasBg ? captionConfig.bgColor : "transparent" });
   });
 
-btnClear?.addEventListener("click", () => {
+  btnClear?.addEventListener("click", () => {
     if (textarea) {
       textarea.value = "";
       lastInputText = "";
@@ -556,61 +548,21 @@ btnClear?.addEventListener("click", () => {
     }
   });
 
-  pickerFont?.addEventListener("input", (e) => {
-    const newSize = Number(e.target.value);
-    captionConfig.fontSize = newSize;
-
-    if (textarea) {
-      textarea.style.fontSize = `${Math.max(11, Math.round(newSize * 0.28))}px`;
-    }
-
-    if (activeCaptionId) {
-      const state = useStore.getState();
-      const currentItem = state.trackItemsMap?.[activeCaptionId];
-      if (currentItem) {
-        useStore.setState((prev) => ({
-          trackItemsMap: {
-            ...prev.trackItemsMap,
-            [activeCaptionId]: {
-              ...currentItem,
-              details: {
-                ...currentItem.details,
-                fontSize: newSize,
-              },
-            },
-          },
-        }));
-      }
-    }
-  });
-
   textarea?.addEventListener("input", (e) => {
     lastInputText = e.target.value;
   });
 
-
-  // Impede que o editor/canvas roube o foco, o cursor e as teclas digitadas
-  textarea?.addEventListener("keydown", (e) => {
-    e.stopPropagation();
-  });
-  textarea?.addEventListener("keyup", (e) => {
-    e.stopPropagation();
-  });
-  textarea?.addEventListener("keypress", (e) => {
-    e.stopPropagation();
-  });
-  textarea?.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-  });
-  textarea?.addEventListener("click", (e) => {
-    e.stopPropagation();
-  });
+  textarea?.addEventListener("keydown", (e) => e.stopPropagation());
+  textarea?.addEventListener("keyup", (e) => e.stopPropagation());
+  textarea?.addEventListener("keypress", (e) => e.stopPropagation());
+  textarea?.addEventListener("mousedown", (e) => e.stopPropagation());
+  textarea?.addEventListener("click", (e) => e.stopPropagation());
 
   btnClose?.addEventListener("click", () => {
     if (typeof onClose === "function") onClose();
   });
 
-  // AÇÃO DO BOTÃO WHISPER: INJETA O TEXTO NO CAMPO
+  // Whisper / Transcrição
   btnAi?.addEventListener("click", async () => {
     const state = useStore.getState();
     const activeVideoId = state.trackItemIds?.find(
@@ -629,13 +581,12 @@ btnClear?.addEventListener("click", () => {
       btnAi.style.cursor = "wait";
       btnAi.style.backgroundColor = "#1e293b";
       btnAi.innerText = " Extraindo áudio...";
-if (transcribeStatus) {
+      if (transcribeStatus) {
         transcribeStatus.style.display = "block";
         transcribeStatus.style.color = "#38bdf8";
         transcribeStatus.innerText = "Processando com o Whisper... aguarde.";
       }
 
-      // NOVO CÓDIGO AQUI:
       const trimFrom = mediaItem.trim?.from ?? 0;
       const trimTo = mediaItem.trim?.to ?? null;
       const mediaBlob = await extractAudioBlobFromUrl(mediaItem.details.src, trimFrom, trimTo);
@@ -691,7 +642,7 @@ if (transcribeStatus) {
     }
   });
 
-  // AÇÃO DO BOTÃO APLICAR: ENVIA O TEXTO CORRIGIDO PELO UTILIZADOR
+  // Ação de Aplicar
   btnSubmit?.addEventListener("click", () => {
     const targetTextarea = container.querySelector("#caption-input-text") || textarea;
     const rawText = (targetTextarea ? targetTextarea.value : "").trim();
@@ -728,11 +679,10 @@ if (transcribeStatus) {
       videoEndMs
     );
 
-    // Atualiza a memória ativa para o texto corrigido não ser sobrescrito pelo cache antigo
     customWhisperSegments = finalSegments;
     const canvasWidth = state.size?.width || 1920;
     const canvasHeight = state.size?.height || 1080;
-    const boxWidth = Math.round(canvasWidth * 0.7); // 70% da largura
+    const boxWidth = Math.round(canvasWidth * 0.7);
     const boxHeight = 160;
 
     const payload = {
@@ -751,16 +701,19 @@ if (transcribeStatus) {
         activeColor: captionConfig.activeColor,
         textColor: captionConfig.textColor,
         backgroundColor: captionConfig.hasBg ? captionConfig.bgColor : "transparent",
+        fontFamily: captionConfig.fontFamily,
+        fontWeight: captionConfig.fontWeight,
         fontSize: captionConfig.fontSize,
+        fontStyle: captionConfig.fontStyle,
+        textAlign: captionConfig.textAlign,
         width: boxWidth,
         height: boxHeight,
         left: (canvasWidth - boxWidth) / 2,
         top: canvasHeight - boxHeight - 120,
       },
     };
-  
-// Atualiza a store global para o motor de legenda sem criar o bloco físico na timeline
-   useStore.setState((prev) => ({
+
+    useStore.setState((prev) => ({
       trackItemIds: prev.trackItemIds?.includes(captionId) ? prev.trackItemIds : [...(prev.trackItemIds || []), captionId],
       activeIds: [captionId],
       trackItemsMap: {
@@ -783,6 +736,3 @@ if (transcribeStatus) {
     }
   });
 }
-
-
-

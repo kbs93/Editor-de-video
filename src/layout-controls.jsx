@@ -308,7 +308,23 @@ export function Navbar() {
 }
 
 // Catálogo de estilos de texto pré-definidos
+// Catálogo de estilos de texto pré-definidos
 const TEXT_PRESETS = [
+  {
+    id: "none",
+    label: "Nenhum estilo",
+    previewText: "Sem estilo",
+    details: {
+      fontFamily: "Arial",
+      color: "#ffffff",
+      fontSize: 70,
+      fontWeight: "normal",
+      backgroundColor: "transparent",
+      borderWidth: 0,
+      borderColor: "transparent",
+      boxShadow: null,
+    },
+  },
   {
     id: "creator",
     label: "Creator",
@@ -616,8 +632,7 @@ export function Menu() {
 const handleSelectTextPreset = (preset) => {
     const { activeIds, trackItemsMap } = useStore.getState();
     const activeId = activeIds && activeIds.length > 0 ? activeIds[0] : null;
-
-    // Se houver uma legenda selecionada na tela, aplica o estilo nela imediatamente
+// Se houver uma legenda selecionada na tela, aplica o estilo nela imediatamente
     if (activeId && trackItemsMap[activeId]?.type === "caption") {
       updateActiveItemProperty({
         details: {
@@ -627,10 +642,12 @@ const handleSelectTextPreset = (preset) => {
           borderWidth: preset.details.borderWidth || 0,
           borderColor: preset.details.borderColor || "transparent",
           boxShadow: preset.details.boxShadow || null,
+          backgroundColor: preset.details.backgroundColor || "transparent",
         },
       });
       return;
     }
+  
 
     // Comportamento padrão para novos textos se não houver legenda selecionada
     const { size } = useStore.getState();
