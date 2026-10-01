@@ -30,7 +30,7 @@ export function buildTimedSegments(rawText, fromMs, toMs) {
     const wordDuration = (segEnd - segStart) / chunk.length;
 
     const timedWords = chunk.map((w, wIndex) => ({
-      word: w.toUpperCase(),
+    word: String(w),
       start: Math.round(segStart + wIndex * wordDuration),
       end: Math.round(segStart + (wIndex + 1) * wordDuration),
     }));
@@ -123,7 +123,7 @@ export function reconcileSegmentsWithText(rawText, baseSegments, totalFromMs, to
       }
 
       return {
-        word: String(word).toUpperCase(),
+      word: String(word),
         start: wStart,
         end: wEnd,
       };
@@ -239,6 +239,8 @@ let animFrameId = null;
 let captionOverlayElement = null;
 let lastInputText = "";
 
+// Fator de proporção para converter a escala do Clipchamp (pontos de interface) em pixels reais de tela cheia Full HD (1920x1080)
+const FONT_SCALE_FACTOR = 2.5;
 let captionConfig = {
   activeColor: "#38bdf8",
   textColor: "#ffffff",
@@ -246,8 +248,10 @@ let captionConfig = {
   hasBg: true,
   fontFamily: "Poppins",
   fontWeight: "bold",
-  fontSize: 54,
+  displayFontSize: 24,
+  fontSize: Math.round(24 * FONT_SCALE_FACTOR),
   fontStyle: "normal",
+  textTransform: "uppercase", // "uppercase" ou "none"
   textAlign: "center",
   left: 50,
   top: 72,
@@ -336,6 +340,10 @@ export function openCaptionModal(container, onClose) {
 
       <!-- Caixa de Texto Esticada Verticalmente -->
       <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 90px;">
+
+
+
+
         <div style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
           <label style="font-size: 11px; color: #a1a1aa; font-weight: 500; font-family: sans-serif;">
             Texto falado no vídeo:
@@ -390,27 +398,49 @@ export function openCaptionModal(container, onClose) {
             <option value="bold" ${captionConfig.fontWeight === "bold" ? "selected" : ""}>Negrito</option>
             <option value="900" ${captionConfig.fontWeight === "900" ? "selected" : ""}>Extra Negrito</option>
           </select>
-<select id="modal-font-size" style="width: 75px; padding: 6px 8px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; font-size: 12px; color: #f4f4f5; outline: none; cursor: pointer; max-height: 200px;">
-            ${[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 54, 60, 72, 96]
-              .map((sz) => `<option value="${sz}" ${captionConfig.fontSize === sz ? "selected" : ""}>${sz}</option>`)
+      <!-- Escala Idêntica ao Clipchamp -->
+          <select id="modal-font-size" style="width: 75px; padding: 6px 8px; border-radius: 6px; border: 1px solid #3f3f46; background: #18181b; font-size: 12px; color: #f4f4f5; outline: none; cursor: pointer; max-height: 200px;">
+            ${[12, 14, 16, 20, 24, 28, 32, 40, 48, 64, 88]
+              .map((sz) => `<option value="${sz}" ${captionConfig.displayFontSize === sz ? "selected" : ""}>${sz}</option>`)
               .join("")}
           </select>
          
         </div>
 
         <!-- Linha: Alinhamento e Botões B e I -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 8px;">
-          <div style="display: flex; gap: 4px;">
-            <button type="button" data-align="left" class="btn-caption-align" style="background: ${captionConfig.textAlign === "left" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Esquerda">≡</button>
-            <button type="button" data-align="center" class="btn-caption-align" style="background: ${captionConfig.textAlign === "center" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Centralizado">≣</button>
-            <button type="button" data-align="right" class="btn-caption-align" style="background: ${captionConfig.textAlign === "right" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: #f4f4f5;" title="Direita">≡</button>
+      <!-- Linha: Alinhamento, Botão Maiúscula/Minúscula (Aa) e Botao B e I -->
+        
+      <!-- Barra de Formatação com botões de tamanho simétrico e distribuição uniforme -->
+        <div style="display: flex; align-items: center; gap: 4px; border-bottom: 1px solid #27272a; padding-bottom: 8px; width: 100%;">
+          
+          <!-- Grupo: Alinhamento -->
+          <div style="display: flex; gap: 4px; flex: 3;">
+            <button type="button" data-align="left" class="btn-caption-align" style="flex: 1; height: 28px; background: ${captionConfig.textAlign === "left" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-size: 18px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Esquerda">≡</button>
+            <button type="button" data-align="center" class="btn-caption-align" style="flex: 1; height: 28px; background: ${captionConfig.textAlign === "center" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-size: 18px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Centralizado">≣</button>
+            <button type="button" data-align="right" class="btn-caption-align" style="flex: 1; height: 28px; background: ${captionConfig.textAlign === "right" ? "#27272a" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-size: 18px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Direita">≡</button>
           </div>
 
-          <div style="display: flex; gap: 5px;">
-            <button type="button" id="btn-modal-bold" style="background: ${captionConfig.fontWeight === "bold" || captionConfig.fontWeight === "900" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; width: 28px; height: 26px; cursor: pointer; font-weight: 900; font-size: 12px; color: #f4f4f5;" title="Negrito">B</button>
-            <button type="button" id="btn-modal-italic" style="background: ${captionConfig.fontStyle === "italic" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 5px; width: 28px; height: 26px; cursor: pointer; font-style: italic; font-size: 12px; color: #f4f4f5;" title="Itálico">I</button>
+          <!-- Separador -->
+          <div style="width: 1px; height: 18px; background-color: #27272a; margin: 0 1px;"></div>
+
+          <!-- Grupo: Caixa Alta/Baixa (Aa) -->
+          <div style="display: flex; flex: 1;">
+            <button type="button" id="btn-modal-case" style="width: 100%; height: 28px; background: ${captionConfig.textTransform === "uppercase" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 18px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Alternar Maiúsculas/Minúsculas">
+              Aa
+            </button>
           </div>
+
+          <!-- Separador -->
+          <div style="width: 1px; height: 18px; background-color: #27272a; margin: 0 1px;"></div>
+
+          <!-- Grupo: Estilos Negrito e Itálico -->
+          <div style="display: flex; gap: 4px; flex: 2;">
+            <button type="button" id="btn-modal-bold" style="flex: 1; height: 28px; background: ${captionConfig.fontWeight === "bold" || captionConfig.fontWeight === "900" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-weight: 900; font-size: 12px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Negrito">B</button>
+            <button type="button" id="btn-modal-italic" style="flex: 1; height: 28px; background: ${captionConfig.fontStyle === "italic" ? "#3f3f46" : "#18181b"}; border: 1px solid #3f3f46; border-radius: 6px; cursor: pointer; font-style: italic; font-size: 12px; color: #f4f4f5; display: flex; align-items: center; justify-content: center; padding: 0;" title="Itálico">I</button>
+          </div>
+
         </div>
+   
         
         <!-- Cores e Fundo -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -478,12 +508,16 @@ export function openCaptionModal(container, onClose) {
       btnBold.style.background = isBold ? "#3f3f46" : "#18181b";
     }
   });
-
-  sizeSelect?.addEventListener("change", (e) => {
-    const sz = Number(e.target.value);
-    captionConfig.fontSize = sz;
-    updateLiveCaption({ fontSize: sz });
+sizeSelect?.addEventListener("change", (e) => {
+    const selectedSize = Number(e.target.value);
+    const scaledPixelSize = Math.round(selectedSize * FONT_SCALE_FACTOR);
+    
+    captionConfig.displayFontSize = selectedSize;
+    captionConfig.fontSize = scaledPixelSize;
+    
+    updateLiveCaption({ fontSize: scaledPixelSize });
   });
+ 
 
   alignBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -561,6 +595,20 @@ export function openCaptionModal(container, onClose) {
   btnClose?.addEventListener("click", () => {
     if (typeof onClose === "function") onClose();
   });
+
+
+
+const btnCase = container.querySelector("#btn-modal-case");
+
+  btnCase?.addEventListener("click", () => {
+    const isUpper = captionConfig.textTransform === "uppercase";
+    captionConfig.textTransform = isUpper ? "none" : "uppercase";
+    btnCase.style.background = !isUpper ? "#3f3f46" : "#18181b";
+    updateLiveCaption({ textTransform: captionConfig.textTransform });
+  });
+
+
+
 
   // Whisper / Transcrição
   btnAi?.addEventListener("click", async () => {
@@ -706,6 +754,7 @@ export function openCaptionModal(container, onClose) {
         fontSize: captionConfig.fontSize,
         fontStyle: captionConfig.fontStyle,
         textAlign: captionConfig.textAlign,
+        textTransform: captionConfig.textTransform, // <-- ADICIONADO AQUI
         width: boxWidth,
         height: boxHeight,
         left: (canvasWidth - boxWidth) / 2,

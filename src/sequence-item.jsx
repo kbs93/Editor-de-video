@@ -550,71 +550,7 @@ function CaptionRenderer({
           )}
         </div>
       </div>
-
-
-
-
-      {/* 2. BARRA FLUTUANTE COM O LÁPIS E O T */}
-      {isSelected && (
-        <div
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: "absolute",
-            top: `-${Math.round(52 * toolbarScale)}px`,
-            left: "50%",
-            transform: `translateX(-50%) scale(${toolbarScale})`,
-            transformOrigin: "bottom center",
-            backgroundColor: "#ffffff",
-            borderRadius: "10px",
-            padding: "4px 12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "14px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
-            zIndex: 999999,
-            pointerEvents: "auto",
-            width: "max-content",
-            height: "40px",
-            boxSizing: "border-box",
-          }}
-        >
-   
-
-          {/* Botão T: Abre a barra de Estilos de Texto */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.dispatchEvent(
-                new CustomEvent("OPEN_SIDEBAR_PANEL", {
-                  detail: { panel: "text" },
-                })
-              );
-            }}
-            title="Estilos de Texto"
-            style={{
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              padding: "4px 8px",
-              margin: "0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "900",
-              fontSize: "20px",
-              fontFamily: "sans-serif",
-              color: "#18181b",
-              borderRadius: "6px",
-              transition: "background 0.15s ease",
-            }}
-          >
-            T
-          </button>
         </div>
-      )}
-    </div>
   );
 }
 

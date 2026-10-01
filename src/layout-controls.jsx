@@ -630,23 +630,7 @@ export function Menu() {
 
 
 const handleSelectTextPreset = (preset) => {
-    const { activeIds, trackItemsMap } = useStore.getState();
-    const activeId = activeIds && activeIds.length > 0 ? activeIds[0] : null;
-// Se houver uma legenda selecionada na tela, aplica o estilo nela imediatamente
-    if (activeId && trackItemsMap[activeId]?.type === "caption") {
-      updateActiveItemProperty({
-        details: {
-          textColor: preset.details.color || "#ffffff",
-          fontFamily: preset.details.fontFamily || SECONDARY_FONT,
-          fontWeight: preset.details.fontWeight || "900",
-          borderWidth: preset.details.borderWidth || 0,
-          borderColor: preset.details.borderColor || "transparent",
-          boxShadow: preset.details.boxShadow || null,
-          backgroundColor: preset.details.backgroundColor || "transparent",
-        },
-      });
-      return;
-    }
+ 
   
 
     // Comportamento padrão para novos textos se não houver legenda selecionada
