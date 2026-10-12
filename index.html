@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de Vídeo Web</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Ícones Phosphor / Boxicons via CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Three.js CDN para suporte 3D -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- BARRA DE TOPO -->
+  <header class="top-nav">
+    <div class="nav-left">
+      <button class="nav-btn icon-only" title="Menu"><i class="fa-solid fa-bars"></i></button>
+      <button class="nav-btn icon-only" id="btn-undo" title="Desfazer"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+      <button class="nav-btn icon-only" id="btn-redo" title="Refazer"><i class="fa-solid fa-arrow-rotate-right"></i></button>
+    </div>
+
+    <div class="nav-center">
+      <div class="dropdown-wrapper">
+        <button class="nav-btn dropdown-toggle" id="btn-aspect-ratio">
+          <i class="fa-solid fa-arrows-up-down-left-right"></i>
+          <span id="current-ratio-label">Tamanho (16:9)</span>
+          <i class="fa-solid fa-chevron-down caret"></i>
+        </button>
+
+        <!-- MENU SUSPENSO DE FORMATOS -->
+        <div class="aspect-dropdown" id="aspect-dropdown-menu">
+          <div class="dropdown-header">Proporção da Tela</div>
+          <ul class="ratio-list">
+            <li class="ratio-item active" data-ratio="16/9" data-name="Largo 16:9">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Largo 16:9</strong>
+                <small>YouTube e sites de streaming</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="9/16" data-name="Vertical 9:16">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Vertical 9:16</strong>
+                <small>Reels do Instagram e TikTok</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="1/1" data-name="Quadrado 1:1">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Quadrado 1:1</strong>
+                <small>Postagens no Instagram</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="4/3" data-name="Clássico 4:3">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Clássico 4:3</strong>
+                <small>Monitores antigos e retro</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="4/5" data-name="Redes Sociais 4:5">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Redes Sociais 4:5</strong>
+                <small>Feed do Instagram vertical</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="21/9" data-name="Cinema 21:9">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Cinema 21:9</strong>
+                <small>Ultrawide e tela de cinema</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+            <li class="ratio-item" data-ratio="2/3" data-name="Retrato 2:3">
+              <i class="fa-regular fa-square ratio-box"></i>
+              <div class="ratio-info">
+                <strong>Retrato 2:3</strong>
+                <small>Fotografia vertical</small>
+              </div>
+              <i class="fa-solid fa-check check-icon"></i>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <button class="nav-btn" id="btn-crop"><i class="fa-solid fa-crop-simple"></i> Recortar</button>
+    </div>
+
+    <div class="nav-right">
+      <button class="primary-btn-record" id="btn-export">
+        <i class="fa-solid fa-video"></i> Gravar Vídeo
+      </button>
+    </div>
+  </header>
+
+  <!-- CORPO PRINCIPAL -->
+  <main class="editor-main">
+<!-- BARRA LATERAL ESQUERDA (ITENS) -->
+    <aside class="sidebar-icons">
+      <span class="sidebar-title">ITENS</span>
+      <button class="tool-btn" data-panel="texto">
+        <i class="fa-solid fa-font"></i>
+        <span>Texto</span>
+      </button>
+      <button class="tool-btn" data-panel="imagem">
+        <i class="fa-regular fa-image"></i>
+        <span>Imagem</span>
+      </button>
+      <button class="tool-btn" data-panel="audio">
+        <i class="fa-solid fa-music"></i>
+        <span>Áudio</span>
+      </button>
+      <button class="tool-btn" data-panel="video">
+        <i class="fa-solid fa-film"></i>
+        <span>Vídeo</span>
+      </button>
+      <button class="tool-btn" data-panel="efeitos">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Efeitos</span>
+      </button>
+      <button class="tool-btn" data-panel="velocidade">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Velocidade</span>
+      </button>
+      <button class="tool-btn active" data-panel="legenda">
+        <i class="fa-solid fa-closed-captioning"></i>
+        <span>Legenda</span>
+      </button>
+    </aside>
+
+    <!-- PAINEL DE CONTROLE DE LEGENDAS -->
+    <section class="panel-inspector">
+      <button class="btn-action-primary" id="btn-dynamic-subtitle">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        Criar Legenda Dinâmica
+      </button>
+
+      <div class="subtitle-input-box">
+        <div class="input-header">
+          <label for="subtitle-text">Texto falado no vídeo:</label>
+          <button class="btn-clear" id="btn-clear-text">Limpar</button>
+        </div>
+        <textarea id="subtitle-text" placeholder="Clique em 'Criar Legenda Dinâmica' ou digite o texto..."></textarea>
+      </div>
+
+      <!-- ESTILIZAÇÃO E TIPOGRAFIA -->
+      <div class="typography-group">
+        <div class="typo-header">
+          <span>APARÊNCIA DA LEGENDA</span>
+          <small>Fonte e Cores</small>
+        </div>
+
+        <select class="custom-select" id="font-family-select">
+          <option value="Poppins">Poppins</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Arial">Arial</option>
+          <option value="Impact">Impact</option>
+        </select>
+
+        <div class="select-inline-grid">
+          <select class="custom-select" id="font-weight-select">
+            <option value="bold">Negrito</option>
+            <option value="normal">Normal</option>
+            <option value="900">Black</option>
+          </select>
+          <select class="custom-select" id="font-size-select">
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+            <option value="24" selected>24px</option>
+            <option value="32">32px</option>
+            <option value="40">40px</option>
+          </select>
+        </div>
+
+        <!-- FORMATAÇÃO DE TEXTO -->
+        <div class="text-format-toolbar">
+          <button class="format-btn" id="align-left" title="Alinhar à Esquerda"><i class="fa-solid fa-align-left"></i></button>
+          <button class="format-btn active" id="align-center" title="Centralizar"><i class="fa-solid fa-align-center"></i></button>
+          <button class="format-btn" id="align-right" title="Alinhar à Direita"><i class="fa-solid fa-align-right"></i></button>
+          <button class="format-btn" id="btn-uppercase" title="Maiúsculas">Aa</button>
+          <button class="format-btn active" id="btn-bold" title="Negrito"><strong>B</strong></button>
+          <button class="format-btn" id="btn-italic" title="Itálico"><em>I</em></button>
+        </div>
+
+        <!-- CORES -->
+        <div class="color-row">
+          <label>Cor do Texto:</label>
+          <div class="color-picker-box">
+            <input type="color" id="text-color-picker" value="#ffffff">
+          </div>
+        </div>
+
+        <div class="color-row">
+          <label>Cor de Fundo:</label>
+          <div class="color-options-wrap">
+            <input type="color" id="bg-color-picker" value="#000000">
+            <label class="checkbox-container">
+              <input type="checkbox" id="no-background-check" checked>
+              <span>Sem Fundo</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-apply-subtitle" id="btn-apply">Aplicar Legenda no Vídeo</button>
+    </section>
+
+    <!-- COLUNA DE GAVETAS DE ELEMENTOS / SLOTS (+) -->
+  <!-- COLUNA DE GAVETAS DE ELEMENTOS / SLOTS (+) -->
+    <section class="slots-column">
+      <div class="slot-card" id="slot-video">
+        <button class="slot-add-btn" title="Adicionar Camada de Vídeo"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="slot-card" id="slot-overlay">
+        <button class="slot-add-btn" title="Adicionar Sobreposição / Imagem"><i class="fa-solid fa-plus"></i></button>
+      </div>
+    </section>
+
+
+    <!-- ÁREA DE VISUALIZAÇÃO (PREVIEW / WORKSPACE) -->
+    <section class="viewport-workspace">
+      <div class="canvas-stage-wrapper" id="stage-wrapper" style="aspect-ratio: 16/9;">
+        <!-- Canvas para Renderização -->
+        <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+        
+        <!-- Three.js Canvas Container (Opcional para 3D) -->
+        <div id="threejs-overlay" class="threejs-layer"></div>
+
+        <!-- Placeholder Inicial de Upload -->
+        <div class="upload-dropzone" id="dropzone">
+          <input type="file" id="media-input" accept="video/*,image/*" hidden>
+          <div class="upload-icon-circle">
+            <i class="fa-solid fa-plus"></i>
+          </div>
+          <p class="upload-headline">Clique para fazer o upload</p>
+          <p class="upload-subline">Ou arraste e solte os arquivos aqui.</p>
+        </div>
+
+        <!-- Elemento de Vídeo Invisível para Carregamento -->
+        <video id="hidden-video" style="display:none;" playsinline crossOrigin="anonymous"></video>
+      </div>
+    </section>
+  </main>
+
+  <!-- BARRA DE LINHA DO TEMPO (BOTTOM) -->
+  <footer class="timeline-container">
+    <!-- FERRAMENTAS DA TIMELINE -->
+    <div class="timeline-controls-bar">
+      <div class="timeline-actions">
+        <button class="btn-tl-action" id="tl-delete"><i class="fa-regular fa-trash-can"></i> Excluir</button>
+        <button class="btn-tl-action" id="tl-split"><i class="fa-solid fa-crop"></i> Dividir</button>
+        <button class="btn-tl-action" id="tl-clone"><i class="fa-regular fa-clone"></i> Clone</button>
+        <button class="btn-tl-action" id="tl-mute"><i class="fa-solid fa-volume-high"></i> Silenciar</button>
+      </div>
+
+      <div class="playback-controls">
+        <button class="btn-transport" id="btn-prev"><i class="fa-solid fa-backward-step"></i></button>
+        <button class="btn-transport-play" id="btn-play-pause"><i class="fa-solid fa-play"></i></button>
+        <button class="btn-transport" id="btn-next"><i class="fa-solid fa-forward-step"></i></button>
+        <span class="timer-display" id="time-indicator">00:00 / 00:00</span>
+      </div>
+
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="btn-zoom-out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <input type="range" class="zoom-slider" id="timeline-zoom" min="50" max="200" value="100">
+        <button class="zoom-btn" id="btn-zoom-in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button class="zoom-btn" id="btn-expand"><i class="fa-solid fa-expand"></i></button>
+      </div>
+    </div>
+
+    <!-- RÉGUA E FAIXA DE TEMPO -->
+    <div class="timeline-tracks-area" id="timeline-scroll-area">
+      <div class="timeline-ruler" id="ruler">
+        <span class="ruler-mark" style="left: 0%;"></span>
+        <span class="ruler-mark" style="left: 8.33%;">| 5s</span>
+        <span class="ruler-mark" style="left: 16.66%;">| 10s</span>
+        <span class="ruler-mark" style="left: 25%;">| 15s</span>
+        <span class="ruler-mark" style="left: 33.33%;">| 20s</span>
+        <span class="ruler-mark" style="left: 41.66%;">| 25s</span>
+        <span class="ruler-mark" style="left: 50%;">| 30s</span>
+        <span class="ruler-mark" style="left: 58.33%;">| 35s</span>
+        <span class="ruler-mark" style="left: 66.66%;">| 40s</span>
+      </div>
+
+      <!-- AGULHA / PLAYHEAD -->
+      <div class="timeline-playhead" id="playhead">
+        <div class="playhead-needle-head"></div>
+        <div class="playhead-line"></div>
+      </div>
+
+      <!-- PISTA DE CLIPE VAZIA OU COM MÍDIA -->
+      <div class="timeline-track" id="video-track">
+        <div class="clip-block" id="clip-block">Nenhuma mídia carregada</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
