@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Editor de Vídeo Web</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Ícones Phosphor / Boxicons via CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Three.js CDN para suporte 3D -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
@@ -104,7 +102,7 @@
 
   <!-- CORPO PRINCIPAL -->
   <main class="editor-main">
-<!-- BARRA LATERAL ESQUERDA (ITENS) -->
+    <!-- BARRA LATERAL ESQUERDA (ITENS) -->
     <aside class="sidebar-icons">
       <span class="sidebar-title">ITENS</span>
       <button class="tool-btn" data-panel="texto">
@@ -137,8 +135,8 @@
       </button>
     </aside>
 
-    <!-- PAINEL DE CONTROLE DE LEGENDAS -->
-    <section class="panel-inspector">
+    <!-- PAINEL DINÂMICO 1: LEGENDA (PADRÃO) -->
+    <section class="panel-inspector tab-panel active" id="panel-legenda">
       <button class="btn-action-primary" id="btn-dynamic-subtitle">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         Criar Legenda Dinâmica
@@ -214,8 +212,166 @@
       <button class="btn-apply-subtitle" id="btn-apply">Aplicar Legenda no Vídeo</button>
     </section>
 
+    <!-- PAINEL DINÂMICO 2: EFEITOS (IMAGEM 2) -->
+    <section class="panel-inspector tab-panel" id="panel-efeitos">
+      <div class="panel-section-title">
+        <div class="title-left">
+          <strong>Efeitos</strong>
+          <span class="badge-count">1</span>
+        </div>
+        <button class="btn-close-subpanel" title="Fechar"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+      </div>
+
+      <div class="effects-grid">
+        <div class="effect-card" data-fx="zoom-in">
+          <div class="effect-thumb-preview fx-zoom-in">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Zoom abrupto</span>
+        </div>
+
+        <div class="effect-card" data-fx="zoom-slow">
+          <div class="effect-thumb-preview fx-zoom-slow">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Zoom lento</span>
+        </div>
+
+        <div class="effect-card" data-fx="zoom-random">
+          <div class="effect-thumb-preview fx-dark">
+            <div class="monkey-avatar small">🐵</div>
+          </div>
+          <span>Zoom lento aleatório</span>
+        </div>
+
+        <div class="effect-card" data-fx="green-screen">
+          <div class="effect-thumb-preview fx-green">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Tela verde</span>
+        </div>
+
+        <div class="effect-card" data-fx="bw-remove">
+          <div class="effect-thumb-preview fx-bw">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Remoção preto/branco</span>
+        </div>
+
+        <div class="effect-card" data-fx="blur">
+          <div class="effect-thumb-preview fx-blur"></div>
+          <span>Desfocado</span>
+        </div>
+
+        <div class="effect-card" data-fx="blur-fill">
+          <div class="effect-thumb-preview fx-blur-fill">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Preenchimento com desfoque</span>
+        </div>
+
+        <div class="effect-card" data-fx="film">
+          <div class="effect-thumb-preview fx-film">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Fílmico</span>
+        </div>
+
+        <div class="effect-card" data-fx="glitch">
+          <div class="effect-thumb-preview fx-glitch">
+            <div class="monkey-avatar">🐵</div>
+          </div>
+          <span>Glitch</span>
+        </div>
+
+        <div class="effect-card" data-fx="disco">
+          <div class="effect-thumb-preview fx-disco">
+            <div class="monkey-avatar pink">🐵</div>
+          </div>
+          <span>Disco</span>
+        </div>
+
+        <div class="effect-card" data-fx="color-shift">
+          <div class="effect-thumb-preview fx-colorshift">
+            <div class="monkey-avatar blue">🐵</div>
+          </div>
+          <span>Mudança de cor</span>
+        </div>
+
+        <div class="effect-card" data-fx="glass">
+          <div class="effect-thumb-preview fx-glass"></div>
+          <span>Vidro</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAINEL DINÂMICO 3: TEXTOS E ESTILOS PRONTOS (IMAGEM 3) -->
+    <section class="panel-inspector tab-panel" id="panel-texto">
+      <div class="panel-section-title">
+        <strong>Texto</strong>
+        <button class="btn-close-subpanel" title="Fechar"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+      </div>
+
+      <div class="text-library-scroll">
+        <span class="sub-category-title">Texto sem formatação</span>
+        <div class="plain-text-box" data-text-style="plain">
+          <strong>Text</strong>
+        </div>
+
+        <div class="category-header-row">
+          <span>Estilos de texto</span>
+          <a href="#">Ver tudo &gt;</a>
+        </div>
+
+        <div class="presets-text-grid">
+          <div class="preset-card transparent-grid" data-text-style="creator">
+            <span class="preset-creator">CREATOR</span>
+          </div>
+          <div class="preset-card transparent-grid" data-text-style="textbox">
+            <span class="preset-textbox">Text box</span>
+          </div>
+          <div class="preset-card transparent-grid" data-text-style="pride">
+            <span class="preset-pride">Pride</span>
+          </div>
+          <div class="preset-card transparent-grid" data-text-style="button">
+            <button class="preset-pill">Button</button>
+          </div>
+          <div class="preset-card transparent-grid" data-text-style="bubble">
+            <span class="preset-bubble">Bubble</span>
+          </div>
+          <div class="preset-card transparent-grid" data-text-style="retro">
+            <span class="preset-retro">RETRO</span>
+          </div>
+        </div>
+
+        <span class="sub-category-title">Título</span>
+        <div class="presets-text-grid">
+          <div class="preset-card dark-card" data-text-style="typewriter">
+            <span class="preset-typewriter">Máquina|</span>
+          </div>
+          <div class="preset-card circle-blue" data-text-style="circular">
+            <span>Circular</span>
+          </div>
+          <div class="preset-card dark-card" data-text-style="groovy">
+            <span class="preset-groovy">GROOVY</span>
+          </div>
+          <div class="preset-card dark-card" data-text-style="smoke">
+            <span class="preset-smoke">Esfumaçado</span>
+          </div>
+          <div class="preset-card dark-card" data-text-style="neon-box">
+            <div class="preset-neon-border">Título Nítido</div>
+          </div>
+          <div class="preset-card dark-card" data-text-style="fade">
+            <span class="preset-fade">Esmaecer</span>
+          </div>
+          <div class="preset-card dark-card" data-text-style="mare">
+            <span class="preset-mare">MARÉ</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- COLUNA DE GAVETAS DE ELEMENTOS / SLOTS (+) -->
-  <!-- COLUNA DE GAVETAS DE ELEMENTOS / SLOTS (+) -->
     <section class="slots-column">
       <div class="slot-card" id="slot-video">
         <button class="slot-add-btn" title="Adicionar Camada de Vídeo"><i class="fa-solid fa-plus"></i></button>
@@ -225,17 +381,12 @@
       </div>
     </section>
 
-
     <!-- ÁREA DE VISUALIZAÇÃO (PREVIEW / WORKSPACE) -->
     <section class="viewport-workspace">
       <div class="canvas-stage-wrapper" id="stage-wrapper" style="aspect-ratio: 16/9;">
-        <!-- Canvas para Renderização -->
         <canvas id="preview-canvas" width="1920" height="1080"></canvas>
-        
-        <!-- Three.js Canvas Container (Opcional para 3D) -->
         <div id="threejs-overlay" class="threejs-layer"></div>
 
-        <!-- Placeholder Inicial de Upload -->
         <div class="upload-dropzone" id="dropzone">
           <input type="file" id="media-input" accept="video/*,image/*" hidden>
           <div class="upload-icon-circle">
@@ -245,50 +396,51 @@
           <p class="upload-subline">Ou arraste e solte os arquivos aqui.</p>
         </div>
 
-        <!-- Elemento de Vídeo Invisível para Carregamento -->
         <video id="hidden-video" style="display:none;" playsinline crossOrigin="anonymous"></video>
       </div>
     </section>
   </main>
 
-  <!-- BARRA DE LINHA DO TEMPO (BOTTOM) -->
-  <footer class="timeline-container">
+  <!-- BARRA DE LINHA DO TEMPO (BOTTOM - IMAGEM 1) -->
+<footer class="timeline-container" id="timeline-container">
+    <div class="timeline-resizer" id="timeline-resizer"></div>
     <!-- FERRAMENTAS DA TIMELINE -->
     <div class="timeline-controls-bar">
       <div class="timeline-actions">
+        <button class="btn-tl-action" id="tl-magic" title="Efeitos Mágicos"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+        <button class="btn-tl-action" id="tl-split" title="Dividir / Cortar"><i class="fa-solid fa-scissors"></i></button>
         <button class="btn-tl-action" id="tl-delete"><i class="fa-regular fa-trash-can"></i> Excluir</button>
-        <button class="btn-tl-action" id="tl-split"><i class="fa-solid fa-crop"></i> Dividir</button>
         <button class="btn-tl-action" id="tl-clone"><i class="fa-regular fa-clone"></i> Clone</button>
         <button class="btn-tl-action" id="tl-mute"><i class="fa-solid fa-volume-high"></i> Silenciar</button>
       </div>
 
       <div class="playback-controls">
-        <button class="btn-transport" id="btn-prev"><i class="fa-solid fa-backward-step"></i></button>
-        <button class="btn-transport-play" id="btn-play-pause"><i class="fa-solid fa-play"></i></button>
-        <button class="btn-transport" id="btn-next"><i class="fa-solid fa-forward-step"></i></button>
-        <span class="timer-display" id="time-indicator">00:00 / 00:00</span>
+        <button class="btn-transport" id="btn-prev" title="Início"><i class="fa-solid fa-backward-step"></i></button>
+        <button class="btn-transport" id="btn-back-5s" title="Voltar 5s"><i class="fa-solid fa-rotate-left"></i> <span class="step-num">5</span></button>
+        <button class="btn-transport-play-circle" id="btn-play-pause"><i class="fa-solid fa-play"></i></button>
+        <button class="btn-transport" id="btn-forward-5s" title="Avançar 5s"><i class="fa-solid fa-rotate-right"></i> <span class="step-num">5</span></button>
+        <button class="btn-transport" id="btn-next" title="Fim"><i class="fa-solid fa-forward-step"></i></button>
+        <span class="timer-display" id="time-indicator">0:00.00 / 0:00.00</span>
       </div>
 
       <div class="zoom-controls">
         <button class="zoom-btn" id="btn-zoom-out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
         <input type="range" class="zoom-slider" id="timeline-zoom" min="50" max="200" value="100">
         <button class="zoom-btn" id="btn-zoom-in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-        <button class="zoom-btn" id="btn-expand"><i class="fa-solid fa-expand"></i></button>
+        <button class="zoom-btn" id="btn-expand"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+        <button class="zoom-btn" id="btn-fullscreen"><i class="fa-solid fa-expand"></i></button>
       </div>
     </div>
 
-    <!-- RÉGUA E FAIXA DE TEMPO -->
+    <!-- RÉGUA E FAIXA DE TEMPO ESTILO FITA DE CINEMA -->
     <div class="timeline-tracks-area" id="timeline-scroll-area">
       <div class="timeline-ruler" id="ruler">
-        <span class="ruler-mark" style="left: 0%;"></span>
-        <span class="ruler-mark" style="left: 8.33%;">| 5s</span>
-        <span class="ruler-mark" style="left: 16.66%;">| 10s</span>
-        <span class="ruler-mark" style="left: 25%;">| 15s</span>
-        <span class="ruler-mark" style="left: 33.33%;">| 20s</span>
-        <span class="ruler-mark" style="left: 41.66%;">| 25s</span>
-        <span class="ruler-mark" style="left: 50%;">| 30s</span>
-        <span class="ruler-mark" style="left: 58.33%;">| 35s</span>
-        <span class="ruler-mark" style="left: 66.66%;">| 40s</span>
+        <span class="ruler-mark" style="left: 0%;">0:00</span>
+        <span class="ruler-mark" style="left: 20%;">0:01</span>
+        <span class="ruler-mark" style="left: 40%;">0:02</span>
+        <span class="ruler-mark" style="left: 60%;">0:03</span>
+        <span class="ruler-mark" style="left: 80%;">0:04</span>
+        <span class="ruler-mark" style="left: 100%;">0:05</span>
       </div>
 
       <!-- AGULHA / PLAYHEAD -->
@@ -296,12 +448,14 @@
         <div class="playhead-needle-head"></div>
         <div class="playhead-line"></div>
       </div>
+<!-- TRILHA 1: VÍDEO PRINCIPAL -->
+      <div class="timeline-track-row" id="video-film-track"></div>
 
-      <!-- PISTA DE CLIPE VAZIA OU COM MÍDIA -->
-      <div class="timeline-track" id="video-track">
-        <div class="clip-block" id="clip-block">Nenhuma mídia carregada</div>
-      </div>
-    </div>
+      <!-- TRILHA 2: IMAGEM / OVERLAY -->
+      <div class="timeline-track-row" id="image-film-track"></div>
+
+      <!-- TRILHA 3: TEXTO PRÉ-FORMATADO -->
+      <div class="timeline-track-row" id="text-film-track"></div>
   </footer>
 
   <script src="app.js"></script>
