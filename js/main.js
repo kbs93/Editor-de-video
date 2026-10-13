@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, timelineConfig } from './state.js';
 import { previewCanvas, hiddenVideo, renderCanvasFrame, getCanvasMousePos } from './canvas.js';
 import { applyVideoToCanvas, applyImageToCanvas, dropzone } from './media.js';
 import { 
@@ -6,7 +6,8 @@ import {
   updatePlaybackProgress, 
   setupTextTimelineClip, 
   btnPlayPause, 
-  registerSelectionCallback 
+  registerSelectionCallback,
+  applyZoom
 } from './timeline.js';
 
 // --- SELETORES DO DOM ---
@@ -39,13 +40,23 @@ const aspectDropdown = document.getElementById('aspect-dropdown-menu');
 const currentRatioLabel = document.getElementById('current-ratio-label');
 const ratioItems = document.querySelectorAll('.ratio-item');
 
-// Timeline & Transporte
+// Timeline, Transporte & Botões de Ação
 const timelineTracksArea = document.getElementById('timeline-scroll-area');
 const btnBack5s = document.getElementById('btn-back-5s');
 const btnForward5s = document.getElementById('btn-forward-5s');
 const secondaryClip = document.getElementById('secondary-clip');
 const secondaryClipTitle = document.getElementById('secondary-clip-title');
 const btnDelete = document.getElementById('tl-delete');
+const btnMute = document.getElementById('tl-mute');
+const btnSplit = document.getElementById('tl-split');
+const btnExport = document.getElementById('btn-export');
+
+// Zoom da Timeline
+const btnZoomIn = document.getElementById('btn-zoom-in');
+const btnZoomOut = document.getElementById('btn-zoom-out');
+const timelineZoomSlider = document.getElementById('timeline-zoom');
+
+// Redimensionador da Timeline
 const timelineResizer = document.getElementById('timeline-resizer');
 const timelineContainer = document.getElementById('timeline-container');
 
@@ -61,7 +72,6 @@ const noBackgroundCheck = document.getElementById('no-background-check');
 const btnApplySubtitle = document.getElementById('btn-apply');
 const btnUppercase = document.getElementById('btn-uppercase');
 
-// Notifica a timeline sobre mudanças de seleção para atualizar o botão Excluir
 registerSelectionCallback(updateDeleteButtonState);
 
 // --- 1. ALTERNÂNCIA DE ABAS LATERAIS ---
@@ -140,8 +150,10 @@ textPresets.forEach(preset => {
     state.customText.y = (previewCanvas.height - 120) / 2;
     state.customText.width = 320;
     state.customText.height = 100;
+    state.selectedElement = 'text';
 
     setupTextTimelineClip(label);
+    updateDeleteButtonState();
 
     if (secondaryClip) {
       secondaryClip.style.display = 'flex';
@@ -294,18 +306,194 @@ btnForward5s.addEventListener('click', () => {
   }
 });
 
-timelineTracksArea.addEventListener('click', (e) => {
+// Scrubbing interativo ao clicar ou arrastar na régua
+let isScrubbing = false;
+
+function scrubTimeline(e) {
   if (!state.videoLoaded) return;
   const rect = timelineTracksArea.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const clickPercent = Math.max(0, Math.min(1, clickX / rect.width));
+  const clickX = e.clientX - rect.left + timelineTracksArea.scrollLeft - 16;
+  const newTime = Math.max(0, Math.min(state.duration, clickX / timelineConfig.pixelsPerSecond));
 
-  hiddenVideo.currentTime = clickPercent * state.duration;
+  hiddenVideo.currentTime = newTime;
   updatePlaybackProgress();
   renderCanvasFrame();
+}
+
+timelineTracksArea.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.timeline-clip-item')) return;
+  isScrubbing = true;
+  scrubTimeline(e);
 });
 
-// --- 8. EVENTOS DE LEGENDA ---
+window.addEventListener('mousemove', (e) => {
+  if (isScrubbing) scrubTimeline(e);
+});
+
+window.addEventListener('mouseup', () => {
+  isScrubbing = false;
+});
+
+// --- 8. BOTÃO SILENCIAR / MUTE ---
+if (btnMute) {
+  btnMute.addEventListener('click', () => {
+    state.isMuted = !state.isMuted;
+    hiddenVideo.muted = state.isMuted;
+    if (state.isMuted) {
+      btnMute.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> Desmutar';
+      btnMute.style.color = '#ef4444';
+    } else {
+      btnMute.innerHTML = '<i class="fa-solid fa-volume-high"></i> Silenciar';
+      btnMute.style.color = '';
+    }
+  });
+}
+
+// --- 9. BOTÃO DIVIDIR / SPLIT ---
+if (btnSplit) {
+  btnSplit.addEventListener('click', () => {
+    if (!state.selectedElement || !state.videoLoaded) return;
+
+    const cur = state.currentTime;
+
+    if (state.selectedElement === 'video') {
+      if (cur > timelineConfig.trimStart && cur < timelineConfig.trimEnd) {
+        timelineConfig.trimEnd = cur;
+        const clipVideo = document.getElementById('clip-video');
+        if (clipVideo) {
+          clipVideo.style.width = `${(timelineConfig.trimEnd - timelineConfig.trimStart) * timelineConfig.pixelsPerSecond}px`;
+        }
+        renderCanvasFrame();
+      }
+    } else if (state.selectedElement === 'overlay') {
+      if (cur > state.overlay.startTime && cur < state.overlay.endTime) {
+        state.overlay.endTime = cur;
+        const clipImg = document.getElementById('clip-image');
+        if (clipImg) {
+          clipImg.style.width = `${(state.overlay.endTime - state.overlay.startTime) * timelineConfig.pixelsPerSecond}px`;
+        }
+        renderCanvasFrame();
+      }
+    } else if (state.selectedElement === 'text') {
+      if (cur > state.customText.startTime && cur < state.customText.endTime) {
+        state.customText.endTime = cur;
+        const clipTxt = document.getElementById('clip-text');
+        if (clipTxt) {
+          clipTxt.style.width = `${(state.customText.endTime - state.customText.startTime) * timelineConfig.pixelsPerSecond}px`;
+        }
+        renderCanvasFrame();
+      }
+    }
+  });
+}
+
+// --- 10. ZOOM DA TIMELINE ---
+if (timelineZoomSlider) {
+  timelineZoomSlider.addEventListener('input', (e) => {
+    applyZoom(Number(e.target.value));
+  });
+}
+
+if (btnZoomIn) {
+  btnZoomIn.addEventListener('click', () => {
+    const val = timelineConfig.pixelsPerSecond + 20;
+    if (timelineZoomSlider) timelineZoomSlider.value = val;
+    applyZoom(val);
+  });
+}
+
+if (btnZoomOut) {
+  btnZoomOut.addEventListener('click', () => {
+    const val = timelineConfig.pixelsPerSecond - 20;
+    if (timelineZoomSlider) timelineZoomSlider.value = val;
+    applyZoom(val);
+  });
+}
+
+// --- 11. EXPORTAÇÃO REAL COM MEDIARECORDER ---
+let mediaRecorder = null;
+let recordedChunks = [];
+
+if (btnExport) {
+  btnExport.addEventListener('click', () => {
+    if (!state.videoLoaded) {
+      alert("Carregue um vídeo antes de exportar.");
+      return;
+    }
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      btnExport.innerHTML = '<i class="fa-solid fa-video"></i> Gravar Vídeo';
+      btnExport.style.background = '';
+      return;
+    }
+
+    // Prepara as faixas de áudio e vídeo
+    const canvasStream = previewCanvas.captureStream(30);
+    let combinedStream = canvasStream;
+
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(hiddenVideo);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      source.connect(audioCtx.destination);
+
+      if (dest.stream.getAudioTracks().length > 0) {
+        combinedStream = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...dest.stream.getAudioTracks()
+        ]);
+      }
+    } catch (err) {
+      console.warn("Áudio direto capturado sem WebAudio:", err);
+    }
+
+    recordedChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm';
+
+    mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        recordedChunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `video_editado_${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+    };
+
+    // Reinicia a reprodução do início para gravar o corte por completo
+    hiddenVideo.currentTime = timelineConfig.trimStart;
+    hiddenVideo.play();
+    state.isPlaying = true;
+    mediaRecorder.start();
+
+    btnExport.innerHTML = '<i class="fa-solid fa-stop"></i> Parar e Baixar';
+    btnExport.style.background = '#dc2626';
+
+    hiddenVideo.onended = () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        btnExport.innerHTML = '<i class="fa-solid fa-video"></i> Gravar Vídeo';
+        btnExport.style.background = '';
+      }
+    };
+  });
+}
+
+// --- 12. EVENTOS DE LEGENDA ---
 btnApplySubtitle.addEventListener('click', () => {
   state.subtitle.text = subtitleTextarea.value;
   state.subtitle.font = fontFamilySelect.value;
@@ -329,47 +517,53 @@ btnUppercase.addEventListener('click', () => {
   renderCanvasFrame();
 });
 
-// --- 9. INTERAÇÃO DO MOUSE NO CANVAS (SELEÇÃO, DRAG E RESIZE) ---
+// --- 13. INTERAÇÃO DO MOUSE NO CANVAS ---
 previewCanvas.addEventListener('mousedown', (e) => {
   const pos = getCanvasMousePos(e);
 
   if (state.customText.active) {
-    const t = state.customText;
-    if (Math.abs(pos.x - (t.x + t.width)) <= 20 && Math.abs(pos.y - (t.y + t.height)) <= 20) {
-      state.selectedElement = 'text';
-      updateDeleteButtonState();
-      t.isResizing = true;
-      renderCanvasFrame();
-      return;
-    }
-    if (pos.x >= t.x && pos.x <= t.x + t.width && pos.y >= t.y && pos.y <= t.y + t.height) {
-      state.selectedElement = 'text';
-      updateDeleteButtonState();
-      t.isDragging = true;
-      t.dragStartX = pos.x - t.x;
-      t.dragStartY = pos.y - t.y;
-      renderCanvasFrame();
-      return;
+    const isVisible = state.currentTime >= state.customText.startTime && state.currentTime <= state.customText.endTime;
+    if (isVisible) {
+      const t = state.customText;
+      if (Math.abs(pos.x - (t.x + t.width)) <= 20 && Math.abs(pos.y - (t.y + t.height)) <= 20) {
+        state.selectedElement = 'text';
+        updateDeleteButtonState();
+        t.isResizing = true;
+        renderCanvasFrame();
+        return;
+      }
+      if (pos.x >= t.x && pos.x <= t.x + t.width && pos.y >= t.y && pos.y <= t.y + t.height) {
+        state.selectedElement = 'text';
+        updateDeleteButtonState();
+        t.isDragging = true;
+        t.dragStartX = pos.x - t.x;
+        t.dragStartY = pos.y - t.y;
+        renderCanvasFrame();
+        return;
+      }
     }
   }
 
   if (state.overlay.img) {
-    const ov = state.overlay;
-    if (Math.abs(pos.x - (ov.x + ov.width)) <= 20 && Math.abs(pos.y - (ov.y + ov.height)) <= 20) {
-      state.selectedElement = 'overlay';
-      updateDeleteButtonState();
-      ov.isResizing = true;
-      renderCanvasFrame();
-      return;
-    }
-    if (pos.x >= ov.x && pos.x <= ov.x + ov.width && pos.y >= ov.y && pos.y <= ov.y + ov.height) {
-      state.selectedElement = 'overlay';
-      updateDeleteButtonState();
-      ov.isDragging = true;
-      ov.dragStartX = pos.x - ov.x;
-      ov.dragStartY = pos.y - ov.y;
-      renderCanvasFrame();
-      return;
+    const isVisible = state.currentTime >= state.overlay.startTime && state.currentTime <= state.overlay.endTime;
+    if (isVisible) {
+      const ov = state.overlay;
+      if (Math.abs(pos.x - (ov.x + ov.width)) <= 20 && Math.abs(pos.y - (ov.y + ov.height)) <= 20) {
+        state.selectedElement = 'overlay';
+        updateDeleteButtonState();
+        ov.isResizing = true;
+        renderCanvasFrame();
+        return;
+      }
+      if (pos.x >= ov.x && pos.x <= ov.x + ov.width && pos.y >= ov.y && pos.y <= ov.y + ov.height) {
+        state.selectedElement = 'overlay';
+        updateDeleteButtonState();
+        ov.isDragging = true;
+        ov.dragStartX = pos.x - ov.x;
+        ov.dragStartY = pos.y - ov.y;
+        renderCanvasFrame();
+        return;
+      }
     }
   }
 
@@ -436,7 +630,7 @@ window.addEventListener('mouseup', () => {
   }
 });
 
-// --- 10. REDIMENSIONADOR DA TIMELINE ---
+// --- 14. REDIMENSIONADOR DA TIMELINE ---
 if (timelineResizer && timelineContainer) {
   let isResizingTimeline = false;
   let startY = 0;
@@ -467,7 +661,7 @@ if (timelineResizer && timelineContainer) {
   });
 }
 
-// --- 11. GESTÃO DE EXCLUSÃO (BOTÃO & TECLA DELETE) ---
+// --- 15. GESTÃO DE EXCLUSÃO (BOTÃO & TECLA DELETE) ---
 function updateDeleteButtonState() {
   if (!btnDelete) return;
   if (state.selectedElement) {

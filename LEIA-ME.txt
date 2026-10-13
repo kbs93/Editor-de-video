@@ -1,0 +1,8 @@
+├── index.html
+├── style.css
+├── js/
+│   ├── state.js       # Objeto de estado reativo partilhado e configurações
+│   ├── canvas.js      # Renderização do Canvas (vídeo, overlays, textos, efeitos, legendas)
+│   ├── media.js       # Uploads, slots e processamento de ficheiros de vídeo e imagem
+│   ├── timeline.js    # Linha do tempo, playhead, recorte (trim), reprodução e redimensionador
+│   └── main.js        # Apenas cliques, botões, menus, atalhos de teclado e listeners da UI

@@ -69,6 +69,57 @@ export function updateTimeDisplay() {
   timeIndicator.textContent = `${formatTime(state.currentTime)} / ${formatTime(state.duration)}`;
 }
 
+export function renderRulerMarks() {
+  const ruler = document.getElementById('ruler');
+  if (!ruler) return;
+  ruler.innerHTML = '';
+
+  const totalDuration = Math.max(state.duration || 10, 10);
+  const totalWidth = totalDuration * timelineConfig.pixelsPerSecond;
+  ruler.style.width = `${totalWidth + 100}px`;
+
+  // Intervalo de marcações dinâmico baseado no zoom
+  const step = timelineConfig.pixelsPerSecond >= 140 ? 1 : timelineConfig.pixelsPerSecond >= 80 ? 2 : 5;
+
+  for (let s = 0; s <= totalDuration; s += step) {
+    const mark = document.createElement('span');
+    mark.className = 'ruler-mark';
+    mark.style.left = `${s * timelineConfig.pixelsPerSecond + 16}px`;
+    const min = Math.floor(s / 60);
+    const sec = Math.floor(s % 60).toString().padStart(2, '0');
+    mark.textContent = `${min}:${sec}`;
+    ruler.appendChild(mark);
+  }
+}
+
+export function applyZoom(newPPS) {
+  timelineConfig.pixelsPerSecond = Math.max(40, Math.min(300, newPPS));
+  renderRulerMarks();
+
+  // Atualizar clipe de vídeo
+  const clipVideo = document.getElementById('clip-video');
+  if (clipVideo && state.duration > 0) {
+    clipVideo.style.left = `${timelineConfig.trimStart * timelineConfig.pixelsPerSecond}px`;
+    clipVideo.style.width = `${(timelineConfig.trimEnd - timelineConfig.trimStart) * timelineConfig.pixelsPerSecond}px`;
+  }
+
+  // Atualizar clipe de overlay
+  const clipImage = document.getElementById('clip-image');
+  if (clipImage && state.overlay.img) {
+    clipImage.style.left = `${state.overlay.startTime * timelineConfig.pixelsPerSecond}px`;
+    clipImage.style.width = `${Math.max(40, (state.overlay.endTime - state.overlay.startTime) * timelineConfig.pixelsPerSecond)}px`;
+  }
+
+  // Atualizar clipe de texto
+  const clipText = document.getElementById('clip-text');
+  if (clipText && state.customText.active) {
+    clipText.style.left = `${state.customText.startTime * timelineConfig.pixelsPerSecond}px`;
+    clipText.style.width = `${Math.max(40, (state.customText.endTime - state.customText.startTime) * timelineConfig.pixelsPerSecond)}px`;
+  }
+
+  updatePlaybackProgress();
+}
+
 export function setupFlexibleFilmClip(fileName) {
   const track = document.getElementById('video-film-track');
   if (!track) return;
@@ -84,13 +135,18 @@ export function setupFlexibleFilmClip(fileName) {
     </div>
   `;
 
+  renderRulerMarks();
   attachClipDragAndTrim(document.getElementById('clip-video'), 'video');
 }
 
 export function setupOverlayTimelineClip(name, thumbUrl) {
   const track = document.getElementById('image-film-track');
   if (!track) return;
-  const clipWidth = state.duration > 0 ? (state.duration * timelineConfig.pixelsPerSecond) * 0.7 : 300;
+  const durationSpan = state.duration > 0 ? state.duration * 0.7 : 5;
+  const clipWidth = durationSpan * timelineConfig.pixelsPerSecond;
+
+  state.overlay.startTime = 0;
+  state.overlay.endTime = durationSpan;
 
   track.innerHTML = `
     <div class="timeline-clip-item selected" id="clip-image" style="width: ${clipWidth}px; left: 0px;">
@@ -110,10 +166,15 @@ export function setupOverlayTimelineClip(name, thumbUrl) {
 export function setupTextTimelineClip(label) {
   const track = document.getElementById('text-film-track');
   if (!track) return;
-  const clipWidth = state.duration > 0 ? (state.duration * timelineConfig.pixelsPerSecond) * 0.5 : 250;
+  const durationSpan = state.duration > 0 ? state.duration * 0.5 : 4;
+  const clipWidth = durationSpan * timelineConfig.pixelsPerSecond;
+  const startOffset = 0.5;
+
+  state.customText.startTime = startOffset;
+  state.customText.endTime = startOffset + durationSpan;
 
   track.innerHTML = `
-    <div class="timeline-clip-item selected" id="clip-text" style="width: ${clipWidth}px; left: 40px;">
+    <div class="timeline-clip-item selected" id="clip-text" style="width: ${clipWidth}px; left: ${startOffset * timelineConfig.pixelsPerSecond}px;">
       <div class="clip-filename-tag">Texto: ${label}</div>
       <div class="clip-trim-handle handle-left" title="Cortar início"></div>
       <div class="clip-content-box">
@@ -173,24 +234,51 @@ export function attachClipDragAndTrim(clipEl, elementType) {
     if (mode === 'drag') {
       const newLeft = Math.max(0, initialLeft + deltaX);
       clipEl.style.left = `${newLeft}px`;
+
+      const newStart = newLeft / timelineConfig.pixelsPerSecond;
+      const currentWidth = parseFloat(clipEl.style.width) || 40;
+      const durationSpan = currentWidth / timelineConfig.pixelsPerSecond;
+
+      if (elementType === 'video') {
+        timelineConfig.trimStart = newStart;
+        timelineConfig.trimEnd = newStart + durationSpan;
+      } else if (elementType === 'overlay') {
+        state.overlay.startTime = newStart;
+        state.overlay.endTime = newStart + durationSpan;
+      } else if (elementType === 'text') {
+        state.customText.startTime = newStart;
+        state.customText.endTime = newStart + durationSpan;
+      }
     } else if (mode === 'trim-left') {
       const newLeft = Math.max(0, initialLeft + deltaX);
       const newWidth = Math.max(40, initialWidth - deltaX);
       clipEl.style.left = `${newLeft}px`;
       clipEl.style.width = `${newWidth}px`;
+
+      const newStart = newLeft / timelineConfig.pixelsPerSecond;
       if (elementType === 'video') {
-        timelineConfig.trimStart = newLeft / timelineConfig.pixelsPerSecond;
+        timelineConfig.trimStart = newStart;
         hiddenVideo.currentTime = timelineConfig.trimStart;
         updatePlaybackProgress();
+      } else if (elementType === 'overlay') {
+        state.overlay.startTime = newStart;
+      } else if (elementType === 'text') {
+        state.customText.startTime = newStart;
       }
     } else if (mode === 'trim-right') {
       const newWidth = Math.max(40, initialWidth + deltaX);
       clipEl.style.width = `${newWidth}px`;
+
+      const curLeft = parseFloat(clipEl.style.left) || 0;
+      const newEnd = (curLeft + newWidth) / timelineConfig.pixelsPerSecond;
       if (elementType === 'video') {
-        const curLeft = parseFloat(clipEl.style.left) || 0;
-        timelineConfig.trimEnd = (curLeft + newWidth) / timelineConfig.pixelsPerSecond;
+        timelineConfig.trimEnd = newEnd;
         hiddenVideo.currentTime = timelineConfig.trimEnd;
         updatePlaybackProgress();
+      } else if (elementType === 'overlay') {
+        state.overlay.endTime = newEnd;
+      } else if (elementType === 'text') {
+        state.customText.endTime = newEnd;
       }
     }
     renderCanvasFrame();

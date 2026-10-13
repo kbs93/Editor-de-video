@@ -38,29 +38,38 @@ export function renderCanvasFrame() {
 
   ctx.restore();
 
+  // Desenho sincronizado da Imagem / Overlay
   if (state.overlay.img) {
-    const ov = state.overlay;
-    ctx.drawImage(ov.img, ov.x, ov.y, ov.width, ov.height);
+    const isVisible = state.currentTime >= state.overlay.startTime && state.currentTime <= state.overlay.endTime;
+    if (isVisible) {
+      const ov = state.overlay;
+      ctx.drawImage(ov.img, ov.x, ov.y, ov.width, ov.height);
 
-    if (state.selectedElement === 'overlay') {
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([6, 6]);
-      ctx.strokeRect(ov.x, ov.y, ov.width, ov.height);
-      ctx.setLineDash([]);
+      if (state.selectedElement === 'overlay') {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 6]);
+        ctx.strokeRect(ov.x, ov.y, ov.width, ov.height);
+        ctx.setLineDash([]);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2;
-      ctx.fillRect(ov.x + ov.width - 8, ov.y + ov.height - 8, 16, 16);
-      ctx.strokeRect(ov.x + ov.width - 8, ov.y + ov.height - 8, 16, 16);
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.fillRect(ov.x + ov.width - 8, ov.y + ov.height - 8, 16, 16);
+        ctx.strokeRect(ov.x + ov.width - 8, ov.y + ov.height - 8, 16, 16);
+      }
     }
   }
 
+  // Desenho sincronizado do Texto Pré-formatado
   if (state.customText.active) {
-    drawInteractivePresetText();
+    const isVisible = state.currentTime >= state.customText.startTime && state.currentTime <= state.customText.endTime;
+    if (isVisible) {
+      drawInteractivePresetText();
+    }
   }
 
+  // Legenda sincronizada
   if (state.subtitle.text.trim()) {
     drawSubtitles();
   }
@@ -118,14 +127,17 @@ function drawInteractivePresetText() {
     ctx.fillText(t.text, t.x + t.width / 2, t.y + t.height / 2);
   }
 
-  ctx.strokeStyle = '#a855f7';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([4, 4]);
-  ctx.strokeRect(t.x, t.y, t.width, t.height);
-  ctx.setLineDash([]);
+  if (state.selectedElement === 'text') {
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(t.x, t.y, t.width, t.height);
+    ctx.setLineDash([]);
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(t.x + t.width - 6, t.y + t.height - 6, 12, 12);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(t.x + t.width - 6, t.y + t.height - 6, 12, 12);
+  }
+
   ctx.restore();
 }
 
